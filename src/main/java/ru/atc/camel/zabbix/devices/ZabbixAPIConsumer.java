@@ -1,8 +1,6 @@
 package ru.atc.camel.zabbix.devices;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
@@ -10,60 +8,39 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.net.ssl.SSLContext;
 
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.impl.ScheduledPollConsumer;
-import org.apache.http.Header;
-import org.apache.http.HttpResponse;
-import org.apache.http.HttpVersion;
+//import org.apache.http.HttpVersion;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CookieStore;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
-import org.apache.http.client.methods.CloseableHttpResponse;
-//import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.client.protocol.HttpClientContext;
 //import org.apache.http.client.methods.HttpPut;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
-import org.apache.http.cookie.Cookie;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCookieStore;
 import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.DefaultHttpClient;
+//import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.cookie.BasicClientCookie;
-import org.apache.http.params.CoreProtocolPNames;
+//import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
-//import com.apc.stdws.xsd.isxcentral._2009._10.ISXCAlarmSeverity;
-//import com.apc.stdws.xsd.isxcentral._2009._10.ISXCAlarm;
-//import com.apc.stdws.xsd.isxcentral._2009._10.ISXCDevice;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
-
 import io.github.hengyunabc.zabbix.api.DefaultZabbixApi;
 import io.github.hengyunabc.zabbix.api.Request;
 import io.github.hengyunabc.zabbix.api.RequestBuilder;
 import ru.at_consulting.itsm.device.Device;
 import ru.at_consulting.itsm.event.Event;
-import ru.atc.camel.zabbix.devices.api.ZabbixAPIHost;
+import scala.xml.dtd.ParameterEntityDecl;
 
 public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
@@ -71,7 +48,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 	private static ZabbixAPIEndpoint endpoint;
 
-	private static String SavedWStoken;
+	//private static String SavedWStoken;
 
 	private static CloseableHttpClient httpClient;
 
@@ -125,7 +102,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 		// Long timestamp;
 
-		List<Device> deviceList = new ArrayList<Device>();
+		List<Device> hostsList = new ArrayList<Device>();
+		List<Device> hostgroupsList = new ArrayList<Device>();
 		List<Device> listFinal = new ArrayList<Device>();
 
 		String eventsuri = endpoint.getConfiguration().getZabbixapiurl();
@@ -136,7 +114,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		logger.info("Try to get Hosts.");
 		// logger.info("Get events URL: " + uri);
 
-		JsonObject json = null;
+		//JsonObject json = null;
 
 		DefaultZabbixApi zabbixApi = null;
 		try {
@@ -150,23 +128,18 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			boolean login = zabbixApi.login(username, password);
 			System.err.println("login:" + login);
 
-			// create new HTTP connection
-			// RequestConfig globalConfig =
-			// RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build();
-			// CookieStore cookieStore = new BasicCookieStore();
-			// httpClient = HTTPinit(globalConfig, cookieStore);
-
-			// save HTTP client session
-			// setHttpclient(httpClient);
-
-			// get zabbix auth Token
-			// String auth = getWStoken();
+		
+			// Get all Hosts from Zabbix
+			hostsList = getAllHosts(zabbixApi);
+			if (hostsList != null)
+				listFinal.addAll(hostsList);
 			
-			// Get all Host from Zabbix
-			deviceList = getAllHosts(zabbixApi);
+			// Get all HostGroups from Zabbix
+			hostgroupsList = getAllHostGroups(zabbixApi);
+			if (hostgroupsList != null)
+				listFinal.addAll(hostgroupsList);
 			
-			listFinal.addAll(deviceList);
-
+		
 			for (int i = 0; i < listFinal.size(); i++) {
 				logger.info("Create Exchange container");
 				Exchange exchange = getEndpoint().createExchange();
@@ -219,6 +192,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		return 1;
 	}
 
+	private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 	private List<Device> getAllHosts(DefaultZabbixApi zabbixApi) {
 
 		Request getRequest;
@@ -263,17 +241,31 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			throw new RuntimeException("Failed get JSON response result for all Hosts.");
 		}
 		List<Device> deviceList = new ArrayList<Device>();
+		
+		List<Device> listFinal = new ArrayList<Device>();
 		//List<Device> listFinal = new ArrayList<Device>();
 		String device_type = "host";
 		String ParentID = "";
+		String newhostname = "";
 		logger.info("Finded Zabbix Hosts: " + hosts.size());
 
 		for (int i = 0; i < hosts.size(); i++) {
 			device_type = "host";
 			ParentID = "";
+			newhostname = "";
 			// logger.debug(f.toString());
 			// ZabbixAPIHost host = new ZabbixAPIHost();
 			JSONObject host = hosts.getJSONObject(i);
+			String hostname = host.getString("host");
+			// Example: KRL-PHOBOSAU--MSSQL
+			if (hostname.matches("(.*)--(.*)")){
+				
+				logger.info("Finded Zabbix Host with Aliases: " + hostname);
+				String[] checkreturn = checkHostAliases(hosts, hostname);
+				ParentID = checkreturn[0];
+				newhostname = checkreturn[1];
+			}
+			
 			JSONArray hostgroups = host.getJSONArray("groups");
 			JSONArray hosttemplates = host.getJSONArray("parentTemplates");
 			JSONArray hostitems = host.getJSONArray("items");
@@ -281,22 +273,27 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 			logger.debug("*** Received JSON Host: " + host.toString());
 			
-			hostgroupsloop:
-			for (int j = 0; j < hostgroups.size(); j++) {
-				// logger.debug(f.toString());
-				// ZabbixAPIHost host = new ZabbixAPIHost();
-				JSONObject hostgroup = hostgroups.getJSONObject(j);
-				String name = hostgroup.getString("name");
-				if (name.startsWith("[")) {
-					logger.debug("************* Found ParentGroup hostgroup: " + name);
-					ParentID = hostgroup.getString("groupid").toString();
-					logger.debug("************* Found ParentGroup hostgroup value: " + ParentID);
-					break hostgroupsloop;
-				}
-				// JSONArray hostgroups = host.getJSONArray("groups");
+			// if ParentID is not set in host name
+			// Example: KRL-PHOBOSAU--MSSQL
+			if (ParentID.equals("")){
+				hostgroupsloop:
+					for (int j = 0; j < hostgroups.size(); j++) {
+						// logger.debug(f.toString());
+						// ZabbixAPIHost host = new ZabbixAPIHost();
+						JSONObject hostgroup = hostgroups.getJSONObject(j);
+						String name = hostgroup.getString("name");
+						if (name.startsWith("[")) {
+							logger.debug("************* Found ParentGroup hostgroup: " + name);
+							ParentID = hostgroup.getString("groupid").toString();
+							logger.debug("************* Found ParentGroup hostgroup value: " + ParentID);
+							break hostgroupsloop;
+						}
+						// JSONArray hostgroups = host.getJSONArray("groups");
 
-				logger.debug("******** Received JSON Hostgroup: " + hostgroup.toString());
+						logger.debug("******** Received JSON Hostgroup: " + hostgroup.toString());
+					}
 			}
+			
 
 			for (int x = 0; x < hosttemplates.size(); x++) {
 				// logger.debug(f.toString());
@@ -334,7 +331,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			}
 
 			Device gendevice = new Device();
-			gendevice = genHostObj(host, device_type, ParentID);
+			gendevice = genHostObj(host, device_type, newhostname, ParentID);
 			deviceList.add(gendevice);
 
 			// fckey = host.getKey();
@@ -348,6 +345,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			// listFinal.addAll(fcSwitches);
 
 		}
+		
 		/*
 		 * 
 		 * if (hosts == null){ throw new RuntimeException(
@@ -388,8 +386,44 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		 * 
 		 * logger.info("Finded Hosts: "+ deviceList.size());
 		 */
-		//listFinal.addAll(deviceList);
-		return deviceList;
+		listFinal.addAll(deviceList);
+		return listFinal;
+	}
+
+	private String[] checkHostAliases(JSONArray hosts, String hostname) {
+		// TODO Auto-generated method stub
+		// Example: KRL-PHOBOSAU--MSSQL
+		String[] hostreturn = new String[] { "", "" } ;
+		Pattern p = Pattern.compile("(.*)--(.*)");
+		Matcher matcher = p.matcher(hostname.toUpperCase());
+		String hostnamebegin = "";
+		String hostnameend = "";
+		//String output = "";
+		if (matcher.matches()){
+			hostnameend = matcher.group(2).toString().toUpperCase();
+			hostnamebegin = matcher.group(1).toString().toUpperCase();
+		}
+		//else return 
+		//hostgroupsloop: 
+		String ParentID = "";
+		for (int j = 0; j < hosts.size(); j++) {
+			// logger.debug(f.toString());
+			// ZabbixAPIHost host = new ZabbixAPIHost();
+			JSONObject host_a = hosts.getJSONObject(j);
+			String name = host_a.getString("name");
+			if (name.equalsIgnoreCase(hostnamebegin)) {
+				ParentID =  host_a.getString("hostid");
+				
+			}
+		}
+		
+		hostreturn[0] = ParentID;
+		hostreturn[1] = hostnameend;
+		
+		logger.info("New Zabbix Host ParentID: " + hostreturn[0]);
+		logger.info("New Zabbix Host Name: " + hostreturn[1]);
+		
+		return hostreturn;
 	}
 
 	private void genErrorMessage(String message) {
@@ -456,181 +490,17 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		}
 	}
 
-	private String getWStoken() throws ClientProtocolException, IllegalArgumentException, IOException {
-
-		// CloseableHttpClient httpClient = HTTPinit();
-
-		String zabbixapiurl = endpoint.getConfiguration().getZabbixip();
-		String username = endpoint.getConfiguration().getUsername();
-		String password = endpoint.getConfiguration().getPassword();
-
-		logger.info("***************** getZabbixip: " + zabbixapiurl);
-		logger.info("***************** getUsername: " + username);
-		logger.info("***************** getPassword: " + password);
-
-		JsonObject jsonrequestparams = new JsonObject();
-		try {
-			jsonrequestparams.addProperty("user", username);
-			jsonrequestparams.addProperty("password", password);
-
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			throw new RuntimeException("Failed create JSON request params.");
-		}
-
-		logger.info("** params: " + jsonrequestparams.toString());
-
-		JsonObject json = performPostRequest("user.login", jsonrequestparams, null);
-
-		String WStoken;
-		try {
-			WStoken = json.get("result").toString();
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			throw new RuntimeException("Failed to get auth token from JSON response.");
-		}
-
-		// Header head = response.getFirstHeader("WStoken");
-		// String WStoken = head.getValue();
-		// System.out.println("***************** WStoken: " + WStoken);
-
-		logger.info("*** New saved WStoken: " + WStoken);
-		setSavedWStoken(WStoken);
-
-		return WStoken;
-
-	}
-
-	private JsonObject performPostRequest(String method, JsonElement jsonparams, String auth)
-			throws ClientProtocolException, IOException {
-
-		String zabbixapiurl = endpoint.getConfiguration().getZabbixapiurl();
-
-		httpClient = getHttpclient();
-
-		logger.info("*** Received in function params WStoken: " + auth);
-
-		// System.out.println("*****************WSToken: " + auth);
-
-		// String WStoken;
-		if (auth == null || method.equals("user.login")) {
-			auth = getSavedWStoken();
-			// if (WStoken == null)
-			// throw new RuntimeException("Failed while WSToken retrieving.");
-		}
-
-		logger.info("*** Using this WStoken: " + auth);
-
-		logger.info("*** Using this HTTP client: " + httpClient.toString());
-
-		// uri =
-		// "resourcegroups/All/events?startindex=0&count=10&specialEvent=true&origin=trap";
-
-		JsonObject jsonrequest = new JsonObject();
-		try {
-			jsonrequest.addProperty("jsonrpc", "2.0");
-			jsonrequest.addProperty("method", method);
-			jsonrequest.add("params", jsonparams);
-			jsonrequest.addProperty("id", 1);
-			jsonrequest.addProperty("auth", auth);
-
-		} catch (Exception ex) {
-			ex.printStackTrace();
-			throw new RuntimeException("Failed create JSON request.");
-		}
-
-		Gson gson = new Gson();
-		String payload = gson.toJson(jsonrequest);
-
-		// RequestConfig globalConfig = RequestConfig.custom()
-		// .setCookieSpec(CookieSpecs.STANDARD).build();
-
-		// httpClient.getParams().setParameter("http.useragent", "Custom
-		// Browser");
-		// httpClient.getParams().setParameter(CoreProtocolPNames.PROTOCOL_VERSION,
-		// HttpVersion.HTTP_1_1);
-
-		RequestConfig globalConfig = RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build();
-		CookieStore cookieStore = new BasicCookieStore();
-		HttpClientContext context = HttpClientContext.create();
-		context.setCookieStore(cookieStore);
-		BasicClientCookie cookie = new BasicClientCookie("name", "value");
-		cookie.setDomain(".mycompany.com");
-		cookie.setPath("/");
-		cookieStore.addCookie(cookie);
-
-		/*
-		 * httpClient = HttpClients .custom() .setUserAgent("Mozilla/5.0")
-		 * .setDefaultRequestConfig(globalConfig)
-		 * .setDefaultCookieStore(cookieStore) .build();
-		 */
-
-		HttpPost request = new HttpPost(zabbixapiurl);
-		// HttpGet request = new HttpGet("http://172.20.19.195/zabbix/");
-		request.setEntity(new StringEntity(payload, "UTF8"));
-		// request.setEntity(new StringEntity(new UrlEncodedFormEntity(payload),
-		// "UTF8"));
-		// request.addHeader("Accept",
-		// "application/vnd.brocade.networkadvisor+json;version=v1");
-		// request.addHeader("WSusername", username);
-		// request.addHeader("WSpassword", password);
-		request.addHeader("Content-Type", "application/json");
-
-		HttpResponse response = null;
-		try {
-			response = httpClient.execute(request, context);
-		} catch (ClientProtocolException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			throw e;
-			// return null;
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			throw e;
-			// return null;
-		}
-
-		List<Cookie> cookies1 = cookieStore.getCookies();
-		logger.debug("*** 1Received cookies: " + cookies1.toString());
-
-		// cookieStore = context.getCookieStore();
-		List<Cookie> cookies = cookieStore.getCookies();
-		System.out.println("***** cook: " + cookies.get(0).getName().toString());
-
-		System.out.println(cookies);
-		logger.debug("*** 2Received cookies: " + cookies.toString());
-
-		System.out.println(context.getCookieStore().getCookies());
-		logger.debug("*** 3Received cookies: " + context.getCookieStore().getCookies());
-
-		if (response.getStatusLine().getStatusCode() != 200) {
-			// throw new RuntimeException("Feedly API error with return code: "
-			// + response.getStatusLine().getStatusCode());
-			System.out.println("Zabbix API error with return code: " + response.getStatusLine().getStatusCode());
-			throw new RuntimeException("Failed while Zabbix API connect.");
-		}
-
-		JsonParser parser = new JsonParser();
-		InputStreamReader sr = new InputStreamReader(response.getEntity().getContent(), "UTF-8");
-		BufferedReader br = new BufferedReader(sr);
-		JsonObject json = (JsonObject) parser.parse(br);
-		br.close();
-		sr.close();
-
-		// httpClient.close();
-
-		logger.info("** response json: " + json.toString());
-
-		return json;
-	}
-
-	private Device genHostObj(JSONObject host, String device_type, String parentID) {
+	private Device genHostObj(JSONObject host, String device_type, String newhostname, String parentID) {
 		Device gendevice = null;
 		gendevice = new Device();
-
-		gendevice.setName(host.getString("host"));
+		
+		if (newhostname.equals("")) {
+			gendevice.setName(host.getString("host"));
+		}
+		else {
+			gendevice.setName(newhostname);
+		}
+		
 		gendevice.setId(host.getString("hostid"));
 		gendevice.setDeviceType(device_type);
 		gendevice.setParentID(parentID);
@@ -697,22 +567,6 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		// context.getCookieStore().getCookies());
 
 		return httpclient;
-	}
-
-	private static String getSavedWStoken() {
-		return SavedWStoken;
-	}
-
-	private void setSavedWStoken(String savedWStoken) {
-		SavedWStoken = savedWStoken;
-	}
-
-	public static CloseableHttpClient getHttpclient() {
-		return httpClient;
-	}
-
-	public static void setHttpclient(CloseableHttpClient httpclient) {
-		ZabbixAPIConsumer.httpClient = httpclient;
 	}
 
 	/*
