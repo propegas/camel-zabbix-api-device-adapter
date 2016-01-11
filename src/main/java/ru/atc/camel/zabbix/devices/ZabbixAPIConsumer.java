@@ -1,9 +1,11 @@
 package ru.atc.camel.zabbix.devices;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.security.KeyManagementException;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
@@ -103,6 +105,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		// Long timestamp;
 
 		List<Device> hostsList = new ArrayList<Device>();
+		List<Device> itemsList = new ArrayList<Device>();
+		
 		List<Device> hostgroupsList = new ArrayList<Device>();
 		List<Device> listFinal = new ArrayList<Device>();
 
@@ -138,6 +142,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			hostgroupsList = getAllHostGroups(zabbixApi);
 			if (hostgroupsList != null)
 				listFinal.addAll(hostgroupsList);
+			
+			// Get all Items marked as CI from Zabbix
+			itemsList = getAllCiItems(zabbixApi);
+			if (itemsList != null)
+				listFinal.addAll(itemsList);
 			
 		
 			for (int i = 0; i < listFinal.size(); i++) {
@@ -192,9 +201,167 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		return 1;
 	}
 
+	private List<Device> getAllCiItems(DefaultZabbixApi zabbixApi) {
+		Request getRequest;
+		JSONObject getResponse;
+		// JsonObject params = new JsonObject();
+		try {
+			// String host1 = "172.20.14.68";
+			// String host2 = "TGC1-ASODU2";
+			// JSONObject filter = new JSONObject();
+			// JSONObject output = new JSONObject();
+
+			// filter.put("host", new String[] { host1, host2 });
+			// output.put("output", new String[] { "hostid", "name", "host" });
+
+			getRequest = RequestBuilder.newBuilder().method("host.get")
+					// .paramEntry("filter", filter)
+					.paramEntry("output", new String[] { "hostid", "name", "host" })
+					.paramEntry("selectItems", new String[] { "itemid", "name", "key_", "description" })
+					.build();
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			throw new RuntimeException("Failed create JSON request for get all CI Items.");
+		}
+
+		// logger.info(" *** Get All host JSON params: " + params.toString());
+
+		// JsonObject json = null;
+		JSONArray hosts;
+		try {
+			getResponse = zabbixApi.call(getRequest);
+			//System.err.println(getResponse);
+
+			hosts = getResponse.getJSONArray("result");
+			//System.err.println(hosts);
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw new RuntimeException("Failed get JSON response result for all CI Items.");
+		}
+		List<Device> deviceList = new ArrayList<Device>();
+		
+		List<Device> listFinal = new ArrayList<Device>();
+		
+		String device_type = "host";
+		String ParentID = "";
+		String newhostname = "";
+		logger.info("Finded Zabbix Hosts: " + hosts.size());
+
+		for (int i = 0; i < hosts.size(); i++) {
+			device_type = "item";
+			ParentID = "";
+			newhostname = "";
+			
+			JSONObject host = hosts.getJSONObject(i);
+			String hostname = host.getString("host");
+			String hostid = host.getString("hostid");
+			
+			JSONArray hostitems = host.getJSONArray("items");
+			
+			for (int y = 0; y < hostitems.size(); y++) {
+				// logger.debug(f.toString());
+				// ZabbixAPIHost host = new ZabbixAPIHost();
+				JSONObject hostitem = hostitems.getJSONObject(y);
+				//String itemid = hostitem.get("hostid").toString();
+				
+				String[] checkreturn = checkItemForCi(hostitem.get("name").toString(), hostname);
+				if ( !checkreturn[0].isEmpty() ){
+					String itemid = checkreturn[0];
+					newhostname = checkreturn[1];
+					
+					Device gendevice = new Device();
+					gendevice = genHostObj("", itemid, device_type, newhostname, hostid);
+					deviceList.add(gendevice);
+					
+				}
+				
+				// JSONArray hostgroups = host.getJSONArray("groups");
+
+				//logger.debug("******** Received JSON hostitem: " + hostitem.toString());
+			}
+			
+			
+			
+
+		}
+		
+		listFinal.addAll(deviceList);
+		
+		return listFinal;
+			
+		
+	}
+
 	private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
 		// TODO Auto-generated method stub
-		return null;
+		
+		Request getRequest;
+		JSONObject getResponse;
+		// JsonObject params = new JsonObject();
+		try {
+			// String host1 = "172.20.14.68";
+			// String host2 = "TGC1-ASODU2";
+			 JSONObject search = new JSONObject();
+			// JSONObject output = new JSONObject();
+
+			 search.put("name", new String[] { "[*]*" });
+			// output.put("output", new String[] { "hostid", "name", "host" });
+
+			getRequest = RequestBuilder.newBuilder().method("hostgroup.get")
+					.paramEntry("search", search)
+					.paramEntry("output", "extend")
+					.paramEntry("searchWildcardsEnabled", 1 )
+					.build();
+
+		} catch (Exception ex) {
+			ex.printStackTrace();
+			throw new RuntimeException("Failed create JSON request for get all Groups.");
+		}
+
+		// logger.info(" *** Get All host JSON params: " + params.toString());
+
+		// JsonObject json = null;
+		JSONArray hostgroups;
+		try {
+			getResponse = zabbixApi.call(getRequest);
+			System.err.println(getResponse);
+
+			hostgroups = getResponse.getJSONArray("result");
+			System.err.println(hostgroups);
+
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			throw new RuntimeException("Failed get JSON response result for all Hosts.");
+		}
+		List<Device> deviceList = new ArrayList<Device>();
+		
+		//List<Device> listFinal = new ArrayList<Device>();
+		//List<Device> listFinal = new ArrayList<Device>();
+		String device_type = "group";
+		//String ParentID = "";
+		//String newhostname = "";
+		logger.info("Finded Zabbix Groups: " + hostgroups.size());
+		
+		for (int i = 0; i < hostgroups.size(); i++) {
+			device_type = "group";
+
+			JSONObject hostgroup = hostgroups.getJSONObject(i);
+			String hostgroupname = hostgroup.getString("name");
+			// Example: KRL-PHOBOSAU--MSSQL
+			
+			logger.debug("*** Received JSON Group: " + hostgroup.toString());
+			
+			Device gendevice = new Device();
+			gendevice = genHostgroupObj(hostgroup, device_type, "");
+			deviceList.add(gendevice);
+			
+		}
+		
+		return deviceList;
 	}
 
 	private List<Device> getAllHosts(DefaultZabbixApi zabbixApi) {
@@ -217,7 +384,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 					.paramEntry("selectMacros", new String[] { "hostmacroid", "macro", "value" })
 					.paramEntry("selectGroups", "extend")
 					.paramEntry("selectParentTemplates", new String[] { "templateeid", "host", "name" })
-					.paramEntry("selectItems", new String[] { "itemid", "name", "key_", "description" }).build();
+					//.paramEntry("selectItems", new String[] { "itemid", "name", "key_", "description" })
+					.build();
 
 		} catch (Exception ex) {
 			ex.printStackTrace();
@@ -257,6 +425,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			// ZabbixAPIHost host = new ZabbixAPIHost();
 			JSONObject host = hosts.getJSONObject(i);
 			String hostname = host.getString("host");
+			String hostid = host.getString("hostid");
 			// Example: KRL-PHOBOSAU--MSSQL
 			if (hostname.matches("(.*)--(.*)")){
 				
@@ -268,7 +437,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			
 			JSONArray hostgroups = host.getJSONArray("groups");
 			JSONArray hosttemplates = host.getJSONArray("parentTemplates");
-			JSONArray hostitems = host.getJSONArray("items");
+			//JSONArray hostitems = host.getJSONArray("items");
 			JSONArray hostmacros = host.getJSONArray("macros");
 
 			logger.debug("*** Received JSON Host: " + host.toString());
@@ -304,14 +473,22 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 				logger.debug("******** Received JSON Hosttemplate: " + hostgtemplate.toString());
 			}
 
+			/*
 			for (int y = 0; y < hostitems.size(); y++) {
 				// logger.debug(f.toString());
 				// ZabbixAPIHost host = new ZabbixAPIHost();
 				JSONObject hostitem = hostitems.getJSONObject(y);
+				
+				String[] checkreturn = checkItemForCi(hostitem.get("name").toString(), hostname);
+				if ( !checkreturn[0].isEmpty() ){
+					
+				}
+				
 				// JSONArray hostgroups = host.getJSONArray("groups");
 
 				//logger.debug("******** Received JSON hostitem: " + hostitem.toString());
 			}
+			*/
 			
 			hostmacrosloop:
 			for (int z = 0; z < hostmacros.size(); z++) {
@@ -331,7 +508,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			}
 
 			Device gendevice = new Device();
-			gendevice = genHostObj(host, device_type, newhostname, ParentID);
+			String hostnameorig = host.getString("host");
+			gendevice = genHostObj(hostnameorig, hostid, device_type, newhostname, ParentID);
 			deviceList.add(gendevice);
 
 			// fckey = host.getKey();
@@ -388,6 +566,58 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		 */
 		listFinal.addAll(deviceList);
 		return listFinal;
+	}
+
+	private String[] checkItemForCi(String itemname, String hostname) {
+		
+		logger.debug("*** Received Zabbix Item : " + itemname);
+		
+		// Example item as CI : 
+		// [test CI item] bla-bla
+		Pattern p = Pattern.compile("\\[(.*)\\](.*)");
+		Matcher matcher = p.matcher(itemname);
+		
+		String ciid = "";
+		//String hostnameend = "";
+		
+		// if Item has CI pattern
+		if (matcher.matches()) {
+			
+			logger.debug("*** Finded Zabbix Item with Pattern as CI: " + itemname);
+			// save as ne CI name
+			itemname = matcher.group(1).toString().toUpperCase();
+
+		    // get SHA-1 hash for hostname-item block for saving as ciid
+		    // Example:
+		    // KRL-PHOBOSAU--PHOBOS:KRL-PHOBOSAU:TEST CI ITEM
+		    logger.debug(String.format("*** Trying to generate hash for Item with Pattern: %s:%s", hostname, itemname));
+		    String hash = "";
+			try {
+				hash = hashString(String.format("%s:%s", hostname, itemname), "SHA-1");
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		    logger.debug("*** Generated Hash: " + hash );
+		    ciid = hash;
+		    
+			//event.setParametr(itemname);
+		}
+		// if Item has no CI pattern
+		else {
+			
+			
+		}
+		
+		String[] hostreturn = new String[] { "", "", "" } ;
+		hostreturn[0] = ciid;
+		hostreturn[1] = itemname;
+		//hostreturn[1] = hostnameend;
+		
+		logger.info("New Zabbix Host CI ID: " + hostreturn[0]);
+		logger.info("New Zabbix Host CI Name: " + hostreturn[1]);
+		
+		return hostreturn;
 	}
 
 	private String[] checkHostAliases(JSONArray hosts, String hostname) {
@@ -490,18 +720,18 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		}
 	}
 
-	private Device genHostObj(JSONObject host, String device_type, String newhostname, String parentID) {
+	private Device genHostObj(String hostname, String Id, String device_type, String newhostname, String parentID) {
 		Device gendevice = null;
 		gendevice = new Device();
 		
 		if (newhostname.equals("")) {
-			gendevice.setName(host.getString("host"));
+			gendevice.setName(hostname);
 		}
 		else {
 			gendevice.setName(newhostname);
 		}
 		
-		gendevice.setId(host.getString("hostid"));
+		gendevice.setId(Id);
 		gendevice.setDeviceType(device_type);
 		gendevice.setParentID(parentID);
 
@@ -516,78 +746,55 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		return gendevice;
 
 	}
-
-	private CloseableHttpClient HTTPinit(RequestConfig globalConfig, CookieStore cookieStore) {
-
-		SSLContext sslContext = null;
-		// HttpClient client = HttpClientBuilder.create().build();
-		HttpClientBuilder cb = HttpClientBuilder.create();
-		SSLContextBuilder sslcb = new SSLContextBuilder();
-		try {
-			sslcb.loadTrustMaterial(KeyStore.getInstance(KeyStore.getDefaultType()), new TrustSelfSignedStrategy());
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (KeyStoreException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	
+	private Device genHostgroupObj(JSONObject host, String device_type, String newhostname) {
+		Device gendevice = null;
+		gendevice = new Device();
+		
+		if (newhostname.equals("")) {
+			gendevice.setName(host.getString("name"));
 		}
-		try {
-			cb.setSslcontext(sslcb.build());
-		} catch (KeyManagementException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		else {
+			gendevice.setName(newhostname);
 		}
-		try {
-			sslContext = sslcb.build();
-		} catch (KeyManagementException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (NoSuchAlgorithmException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		
+		gendevice.setId(host.getString("groupid"));
+		gendevice.setDeviceType(device_type);
+		//gendevice.setParentID(parentID);
 
-		@SuppressWarnings("deprecation")
-		// RequestConfig globalConfig =
-		// RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build();
-		// CookieStore cookieStore = new BasicCookieStore();
-		// HttpClientContext context = HttpClientContext.create();
-		// context.setCookieStore(cookieStore);
-		SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext,
-				SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER);
-		CloseableHttpClient httpclient = HttpClients.custom().setUserAgent("Mozilla/5.0")
-				.setDefaultRequestConfig(globalConfig).setDefaultCookieStore(cookieStore).setSSLSocketFactory(sslsf)
-				.build();
+		// gendevice.setDeviceState(host.getStatus());
+		// gendevice.setDeviceState(host.getOperationalStatus());
 
-		// logger.debug("*** Received cookies: " +
-		// context.getCookieStore().getCookies());
+		gendevice.setSource(String.format("%s", endpoint.getConfiguration().getSource()));
+		
+		logger.debug("Received device_type: " + device_type);
+		logger.debug(gendevice.toString());
 
-		return httpclient;
+		return gendevice;
+
 	}
 
-	/*
-	 * private int processSearchFeeds() throws Exception {
-	 * 
-	 * String query = endpoint.getConfiguration().getQuery(); String uri =
-	 * String.format("login?query=%s", query); JsonObject json =
-	 * performGetRequest(uri);
-	 * 
-	 * //JsonArray feeds = (JsonArray) json.get("results"); JsonArray feeds =
-	 * (JsonArray) json.get("ServerName"); List<Feed2> feedList = new
-	 * ArrayList<Feed2>(); Gson gson = new
-	 * GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create(); for
-	 * (JsonElement f : feeds) { //logger.debug(gson.toJson(i)); Feed2 feed =
-	 * gson.fromJson(f, Feed2.class); feedList.add(feed); }
-	 * 
-	 * Exchange exchange = getEndpoint().createExchange();
-	 * exchange.getIn().setBody(feedList, ArrayList.class);
-	 * getProcessor().process(exchange);
-	 * 
-	 * return 1; }
-	 */
+	private static String hashString(String message, String algorithm)
+            throws Exception {
+ 
+        try {
+            MessageDigest digest = MessageDigest.getInstance(algorithm);
+            byte[] hashedBytes = digest.digest(message.getBytes("UTF-8"));
+ 
+            return convertByteArrayToHexString(hashedBytes);
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
+            throw new RuntimeException(
+                    "Could not generate hash from String", ex);
+        }
+	}
+	
+	private static String convertByteArrayToHexString(byte[] arrayBytes) {
+        StringBuffer stringBuffer = new StringBuffer();
+        for (int i = 0; i < arrayBytes.length; i++) {
+            stringBuffer.append(Integer.toString((arrayBytes[i] & 0xff) + 0x100, 16)
+                    .substring(1));
+        }
+        return stringBuffer.toString();
+    }
 
 }
