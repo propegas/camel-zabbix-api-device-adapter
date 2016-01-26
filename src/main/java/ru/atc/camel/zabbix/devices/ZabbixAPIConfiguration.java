@@ -24,6 +24,8 @@ public class ZabbixAPIConfiguration {
 	
 	private String itemCiPattern;
 	
+	private String itemCiSearchPattern;
+	
 	
 	private int lastid = 0;
 	
@@ -115,6 +117,14 @@ public class ZabbixAPIConfiguration {
 
 	public void setItemCiPattern(String itemCiPattern) {
 		this.itemCiPattern = itemCiPattern;
+	}
+
+	public String getItemCiSearchPattern() {
+		return itemCiSearchPattern;
+	}
+
+	public void setItemCiSearchPattern(String itemCiSearchPattern) {
+		this.itemCiSearchPattern = itemCiSearchPattern;
 	}
 
 

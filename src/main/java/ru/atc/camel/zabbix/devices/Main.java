@@ -86,6 +86,7 @@ public class Main {
 		    			+ "groupCiPattern={{zabbix_group_ci_pattern}}&"
 		    			+ "groupSearchPattern={{zabbix_group_search_pattern}}&"
 		    			+ "itemCiPattern={{zabbix_item_ke_pattern}}&"
+		    			+ "itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&"
 		    			+ "zabbixip={{zabbixip}}")
 
 		    		.marshal(myJson)

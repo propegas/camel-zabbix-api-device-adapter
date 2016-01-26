@@ -211,6 +211,12 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	}
 
 	private List<Device> getAllCiItems(DefaultZabbixApi zabbixApi) {
+		
+		// zabbix_item_ke_search_pattern=[*]*
+		String itemCiSearchPattern = endpoint.getConfiguration().getItemCiSearchPattern();
+		
+		logger.debug("*** Try to get Item CI using Pattern: " + itemCiSearchPattern);
+		
 		Request getRequest;
 		JSONObject getResponse;
 		// JsonObject params = new JsonObject();
@@ -220,7 +226,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			JSONObject search = new JSONObject();
 			// JSONObject output = new JSONObject();
 
-			search.put("name", new String[] { "[*]*" });
+			search.put("name", new String[] { itemCiSearchPattern });
 			// output.put("output", new String[] { "hostid", "name", "host" });
 
 			getRequest = RequestBuilder.newBuilder().method("item.get")
