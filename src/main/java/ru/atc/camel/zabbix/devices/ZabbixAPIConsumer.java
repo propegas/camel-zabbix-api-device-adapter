@@ -8,7 +8,12 @@ import java.security.KeyStoreException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -212,16 +217,18 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		try {
 			// String host1 = "172.20.14.68";
 			// String host2 = "TGC1-ASODU2";
-			// JSONObject filter = new JSONObject();
+			JSONObject search = new JSONObject();
 			// JSONObject output = new JSONObject();
 
-			// filter.put("host", new String[] { host1, host2 });
+			search.put("name", new String[] { "[*]*" });
 			// output.put("output", new String[] { "hostid", "name", "host" });
 
-			getRequest = RequestBuilder.newBuilder().method("host.get")
-					// .paramEntry("filter", filter)
-					.paramEntry("output", new String[] { "hostid", "name", "host" })
-					.paramEntry("selectItems", new String[] { "itemid", "name", "key_", "description" })
+			getRequest = RequestBuilder.newBuilder().method("item.get")
+					.paramEntry("search", search)
+					.paramEntry("output", new String[] { "itemid", "name", "key_", "description" })
+					.paramEntry("monitored", true )
+					.paramEntry("searchWildcardsEnabled", true )
+					.paramEntry("selectHosts", new String[] { "name", "host", "hostid" })
 					.build();
 
 		} catch (Exception ex) {
@@ -232,12 +239,12 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		// logger.info(" *** Get All host JSON params: " + params.toString());
 
 		// JsonObject json = null;
-		JSONArray hosts;
+		JSONArray hostitems;
 		try {
 			getResponse = zabbixApi.call(getRequest);
 			//System.err.println(getResponse);
 
-			hosts = getResponse.getJSONArray("result");
+			hostitems = getResponse.getJSONArray("result");
 			//System.err.println(hosts);
 
 		} catch (Exception e) {
@@ -251,52 +258,68 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		
 		String device_type = "host";
 		String ParentID = "";
-		String newhostname = "";
-		logger.info("Finded Zabbix Hosts: " + hosts.size());
+		String newcitname = "";
+		logger.info("Finded Zabbix CI Items : " + hostitems.size());
 
-		for (int i = 0; i < hosts.size(); i++) {
-			device_type = "item";
-			ParentID = "";
-			newhostname = "";
+		device_type = "item";
+		ParentID = "";
+		newcitname = "";
+		
+		HashMap<String,Object> row = new HashMap<String, Object>();
+		
+		for (int y = 0; y < hostitems.size(); y++) {
 			
-			JSONObject host = hosts.getJSONObject(i);
-			String hostname = host.getString("host");
-			String hostid = host.getString("hostid");
+			JSONObject item = hostitems.getJSONObject(y);
 			
-			JSONArray hostitems = host.getJSONArray("items");
+			JSONArray host = item.getJSONArray("hosts");
 			
-			for (int y = 0; y < hostitems.size(); y++) {
-				// logger.debug(f.toString());
-				// ZabbixAPIHost host = new ZabbixAPIHost();
-				JSONObject hostitem = hostitems.getJSONObject(y);
-				
-				//String itemid = hostitem.get("hostid").toString();
-				String name = hostitem.get("name").toString();
-				String key = hostitem.get("key_").toString();
-				if (name.matches(".*\\$\\d+.*")){
-					name = getTransformedItemName(name,	key);
-				}
-				
-				String[] checkreturn = checkItemForCi(name, hostname);
-				if ( !checkreturn[0].isEmpty() ){
-					String itemid = checkreturn[0];
-					newhostname = checkreturn[1];
-					
-					Device gendevice = new Device();
-					gendevice = genHostObj("", itemid, device_type, newhostname, hostid);
-					deviceList.add(gendevice);
-					
-				}
-				
-				// JSONArray hostgroups = host.getJSONArray("groups");
-
-				//logger.debug("******** Received JSON hostitem: " + hostitem.toString());
+			String hostname = host.getJSONObject(0).getString("host");
+			String hostid = host.getJSONObject(0).getString("hostid");
+			String name = item.get("name").toString();
+			String key = item.get("key_").toString();
+			
+			// parse $1, $2 etc params in item name from key_ params 
+			if (name.matches(".*\\$\\d+.*")){
+				name = getTransformedItemName(name,	key);
 			}
 			
+			// get hash (ciid) and parsed name for CI item
+			// geberate Device json message
+			String[] checkreturn = checkItemForCi(name, hostname);
+			if ( !checkreturn[0].isEmpty() ){
+				String ciid = checkreturn[0];
+				newcitname = checkreturn[1];
+				
+				//int columns = 2;
+	        	//HashMap<String,Object> row = new HashMap<String, Object>();
+	     
+	        	//row.put(ciid,openids[i]);
+				
+				String[] devicearr = new String[] { hostname, ciid, device_type, newcitname, hostid };
+				
+				row.put(ciid, devicearr);
+				
+			}
 			
-			
+			// JSONArray hostgroups = host.getJSONArray("groups");
 
+			//logger.debug("******** Received JSON hostitem: " + hostitem.toString());
 		}
+		
+		/* Display content using Iterator*/
+		//String hostname = "", ciid = "", device_type = "", newcitname = "", hostid = "";
+		for (Entry<String, Object> entry: row.entrySet()){
+		    System.out.println(entry.getKey() + " = " + entry.getValue());
+		    
+		    String[] devicearr = (String[]) entry.getValue();
+		    //hostname = devicearr[0];
+		    
+		    
+		    Device gendevice = new Device();
+			gendevice = genHostObj(devicearr[0], devicearr[1], devicearr[2], devicearr[3], devicearr[4]);
+		    deviceList.add((Device) gendevice);
+		}
+		
 		
 		listFinal.addAll(deviceList);
 		
@@ -328,7 +351,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			getRequest = RequestBuilder.newBuilder().method("hostgroup.get")
 					.paramEntry("search", search)
 					.paramEntry("output", "extend")
-					.paramEntry("searchWildcardsEnabled", 1 )
+					.paramEntry("searchWildcardsEnabled", true )
 					.build();
 
 		} catch (Exception ex) {
@@ -357,13 +380,13 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		
 		//List<Device> listFinal = new ArrayList<Device>();
 		//List<Device> listFinal = new ArrayList<Device>();
-		String device_type = "group";
+		String device_type = "NodeGroup";
 		//String ParentID = "";
 		//String newhostname = "";
 		logger.info("Finded Zabbix Groups: " + hostgroups.size());
 		
 		for (int i = 0; i < hostgroups.size(); i++) {
-			device_type = "group";
+			//device_type = "group";
 
 			JSONObject hostgroup = hostgroups.getJSONObject(i);
 			String hostgroupname = hostgroup.getString("name");
@@ -760,6 +783,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		
 		gendevice.setId(Id);
 		gendevice.setDeviceType(device_type);
+		gendevice.setHostName(hostname);
 		gendevice.setParentID(parentID);
 
 		// gendevice.setDeviceState(host.getStatus());
