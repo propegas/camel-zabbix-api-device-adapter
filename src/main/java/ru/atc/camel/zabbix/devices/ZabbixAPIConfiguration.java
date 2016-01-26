@@ -18,6 +18,13 @@ public class ZabbixAPIConfiguration {
 	
 	private String zabbixapiurl;
 	
+	private String groupCiPattern;
+	
+	private String groupSearchPattern;
+	
+	private String itemCiPattern;
+	
+	
 	private int lastid = 0;
 	
     private int delay = 720;
@@ -84,6 +91,30 @@ public class ZabbixAPIConfiguration {
 
 	public void setZabbixapiurl(String zabbixapiurl) {
 		this.zabbixapiurl = zabbixapiurl;
+	}
+
+	public String getGroupCiPattern() {
+		return groupCiPattern;
+	}
+
+	public void setGroupCiPattern(String groupCiPattern) {
+		this.groupCiPattern = groupCiPattern;
+	}
+
+	public String getGroupSearchPattern() {
+		return groupSearchPattern;
+	}
+
+	public void setGroupSearchPattern(String groupSearchPattern) {
+		this.groupSearchPattern = groupSearchPattern;
+	}
+
+	public String getItemCiPattern() {
+		return itemCiPattern;
+	}
+
+	public void setItemCiPattern(String itemCiPattern) {
+		this.itemCiPattern = itemCiPattern;
 	}
 
 

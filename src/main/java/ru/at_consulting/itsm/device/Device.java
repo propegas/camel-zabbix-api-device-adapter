@@ -33,6 +33,8 @@ public class Device implements  Serializable {
      
      private String Source;
      
+     private String Service;
+     
      private String DeviceState;
      
      //@Column(name = "Severity", nullable = true)
@@ -170,6 +172,14 @@ public class Device implements  Serializable {
 
 		public void setSource(String source) {
 			Source = source;
+		}
+
+		public String getService() {
+			return Service;
+		}
+
+		public void setService(String service) {
+			Service = service;
 		}
 
 	     

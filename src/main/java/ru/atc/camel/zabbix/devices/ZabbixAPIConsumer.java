@@ -130,7 +130,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			zabbixApi.init();
 
 			boolean login = zabbixApi.login(username, password);
-			System.err.println("login:" + login);
+			//System.err.println("login:" + login);
+			if (!login) {
+				
+				throw new RuntimeException("Failed to login to Zabbix API.");
+			}
 
 		
 			// Get all Hosts from Zabbix
@@ -265,9 +269,15 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 				// logger.debug(f.toString());
 				// ZabbixAPIHost host = new ZabbixAPIHost();
 				JSONObject hostitem = hostitems.getJSONObject(y);
-				//String itemid = hostitem.get("hostid").toString();
 				
-				String[] checkreturn = checkItemForCi(hostitem.get("name").toString(), hostname);
+				//String itemid = hostitem.get("hostid").toString();
+				String name = hostitem.get("name").toString();
+				String key = hostitem.get("key_").toString();
+				if (name.matches(".*\\$\\d+.*")){
+					name = getTransformedItemName(name,	key);
+				}
+				
+				String[] checkreturn = checkItemForCi(name, hostname);
 				if ( !checkreturn[0].isEmpty() ){
 					String itemid = checkreturn[0];
 					newhostname = checkreturn[1];
@@ -296,18 +306,23 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	}
 
 	private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
-		// TODO Auto-generated method stub
+		
+		// zabbix_group_search_pattern=(*)*
+		String groupSearchPattern = endpoint.getConfiguration().getGroupSearchPattern();
 		
 		Request getRequest;
 		JSONObject getResponse;
 		// JsonObject params = new JsonObject();
+		
+		logger.debug("*** Try to get Zabbix Groups using Pattern: " + groupSearchPattern);
+		
 		try {
 			// String host1 = "172.20.14.68";
 			// String host2 = "TGC1-ASODU2";
 			 JSONObject search = new JSONObject();
 			// JSONObject output = new JSONObject();
 
-			 search.put("name", new String[] { "[*]*" });
+			 search.put("name", new String[] { groupSearchPattern });
 			// output.put("output", new String[] { "hostid", "name", "host" });
 
 			getRequest = RequestBuilder.newBuilder().method("hostgroup.get")
@@ -327,10 +342,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		JSONArray hostgroups;
 		try {
 			getResponse = zabbixApi.call(getRequest);
-			System.err.println(getResponse);
+			logger.debug("Zabbix Groups getRequest: " + getRequest);
+			logger.debug("Zabbix Groups getResponse: " + getResponse);
 
 			hostgroups = getResponse.getJSONArray("result");
-			System.err.println(hostgroups);
+			//System.err.println(hostgroups);
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -398,10 +414,10 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		JSONArray hosts;
 		try {
 			getResponse = zabbixApi.call(getRequest);
-			System.err.println(getResponse);
+			//System.err.println(getResponse);
 
 			hosts = getResponse.getJSONArray("result");
-			System.err.println(hosts);
+			//System.err.println(hosts);
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -443,7 +459,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			logger.debug("*** Received JSON Host: " + host.toString());
 			
 			// if ParentID is not set in host name
-			// Example: KRL-PHOBOSAU--MSSQL
+			// Example: 
+			
+			// zabbix_group_ci_pattern=\\((.*)\\)(.*)
+			String groupCiSearchPattern = endpoint.getConfiguration().getGroupCiPattern();
+						
 			if (ParentID.equals("")){
 				hostgroupsloop:
 					for (int j = 0; j < hostgroups.size(); j++) {
@@ -451,7 +471,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 						// ZabbixAPIHost host = new ZabbixAPIHost();
 						JSONObject hostgroup = hostgroups.getJSONObject(j);
 						String name = hostgroup.getString("name");
-						if (name.startsWith("[")) {
+						//if (name.startsWith("[")) {
+						if (name.matches(groupCiSearchPattern)) {
 							logger.debug("************* Found ParentGroup hostgroup: " + name);
 							ParentID = hostgroup.getString("groupid").toString();
 							logger.debug("************* Found ParentGroup hostgroup value: " + ParentID);
@@ -570,7 +591,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 	private String[] checkItemForCi(String itemname, String hostname) {
 		
-		logger.debug("*** Received Zabbix Item : " + itemname);
+		//logger.debug("*** Received Zabbix Item : " + itemname);
 		
 		// Example item as CI : 
 		// [test CI item] bla-bla
@@ -614,8 +635,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		hostreturn[1] = itemname;
 		//hostreturn[1] = hostnameend;
 		
-		logger.info("New Zabbix Host CI ID: " + hostreturn[0]);
-		logger.info("New Zabbix Host CI Name: " + hostreturn[1]);
+		logger.debug("New Zabbix Host CI ID: " + hostreturn[0]);
+		logger.debug("New Zabbix Host CI Name: " + hostreturn[1]);
 		
 		return hostreturn;
 	}
@@ -625,6 +646,9 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		// Example: KRL-PHOBOSAU--MSSQL
 		String[] hostreturn = new String[] { "", "" } ;
 		Pattern p = Pattern.compile("(.*)--(.*)");
+		
+		logger.debug("*** Check hostname for aliases: " + hostname.toUpperCase());
+		
 		Matcher matcher = p.matcher(hostname.toUpperCase());
 		String hostnamebegin = "";
 		String hostnameend = "";
@@ -632,6 +656,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		if (matcher.matches()){
 			hostnameend = matcher.group(2).toString().toUpperCase();
 			hostnamebegin = matcher.group(1).toString().toUpperCase();
+			logger.debug("*** hostnamebegin: " + hostnamebegin);
+			logger.debug("*** hostnameend: " + hostnameend);
 		}
 		//else return 
 		//hostgroupsloop: 
@@ -640,7 +666,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			// logger.debug(f.toString());
 			// ZabbixAPIHost host = new ZabbixAPIHost();
 			JSONObject host_a = hosts.getJSONObject(j);
-			String name = host_a.getString("name");
+			String name = host_a.getString("host");
+			logger.debug("*** Compare with hostname: " + name);
 			if (name.equalsIgnoreCase(hostnamebegin)) {
 				ParentID =  host_a.getString("hostid");
 				
@@ -747,23 +774,123 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 	}
 	
-	private Device genHostgroupObj(JSONObject host, String device_type, String newhostname) {
+	private String getTransformedItemName(String name, String key) {
+		// TODO Auto-generated method stub
+		
+		//String transformedname = "";
+		//String webstep = "";
+		
+		// get params from key to item $1 placeholder
+		// Example:
+		// vfs.fs.size[/oracle,pfree]
+		
+		Pattern p = Pattern.compile("(.*)\\[(.*)\\]");
+		Matcher matcher = p.matcher(key);
+		
+		String keyparams = "";
+		//String webscenario = "";
+		//String webstep = "";
+		
+		String[] params = new String[] { } ;
+		
+		// if Web Item has webscenario pattern
+		// Example:
+		// web.test.in[WebScenario,,bps]
+		if (matcher.matches()) {
+			
+			logger.debug("*** Finded Zabbix Item key with Pattern: " + key);
+			// save as ne CI name
+			keyparams = matcher.group(2).toString();
+			
+			// get scenario and step from key params
+			//String[] params = new String[] { } ;
+			params = keyparams.split(",");
+			logger.debug(String.format("*** Finded Zabbix Item key params (size): %d ", params.length));
+						
+			//logger.debug(String.format("*** Finded Zabbix Item key params: %s:%s ", webscenario, webstep));
+
+
+		}
+		// if Item has no CI pattern
+		else {
+			
+			
+		}
+		
+		logger.debug("Item name: " + name);
+		
+		String param = "";
+		int paramnumber;
+		Matcher m = Pattern.compile("\\$\\d+").matcher(name);
+		while (m.find()) {
+			param = m.group(0);
+			paramnumber = Integer.parseInt(param.substring(1));
+			logger.debug("Found Param: " + paramnumber);
+			logger.debug("Found Param Value: " + param);
+			logger.debug("Found Param Value Replace: " + params[paramnumber-1]);
+			
+			name = name.replaceAll("\\$"+paramnumber, params[paramnumber-1]);
+			
+		}
+
+		
+		//logger.debug("New Zabbix Web Item Scenario: " + webelements[0]);
+		logger.debug("New Zabbix Item Name: " + name);
+		
+		return name;
+
+	}
+	
+	private Device genHostgroupObj(JSONObject hostgroup, String device_type, String newhostname) {
+		
 		Device gendevice = null;
 		gendevice = new Device();
 		
+		String hostgroupName = hostgroup.getString("name");
+		/*
 		if (newhostname.equals("")) {
-			gendevice.setName(host.getString("name"));
+			gendevice.setName(hostgroupName);
 		}
 		else {
 			gendevice.setName(newhostname);
 		}
+		*/
 		
-		gendevice.setId(host.getString("groupid"));
-		gendevice.setDeviceType(device_type);
-		//gendevice.setParentID(parentID);
+		// zabbix_group_ci_pattern=\\((.*)\\)(.*)
+		String pattern = endpoint.getConfiguration().getGroupCiPattern();
+		logger.debug("*** Zabbix Group Pattern: " + pattern);
+		
+		String newHostgroupName = ""; 
+		String service = "";
+		
+		// Example item as CI : 
+		// (Невский.СЭ)ТЭЦ-1
+		Pattern p = Pattern.compile(pattern);
+		Matcher matcher = p.matcher(hostgroupName);
+		
+		//String hostnameend = "";
+		
+		// if Item has CI pattern
+		if (matcher.matches()) {
+			logger.debug("*** Finded Zabbix Group with Pattern: " + hostgroupName);
+			
+			newHostgroupName = matcher.group(2).toString();
+			service = matcher.group(1).toString();
 
-		// gendevice.setDeviceState(host.getStatus());
-		// gendevice.setDeviceState(host.getOperationalStatus());
+		    logger.debug("*** newHostgroupName: " + newHostgroupName );
+		    logger.debug("*** service: " + service );
+			
+		}
+		
+		// use parent host as CI for item
+		else {
+			newHostgroupName = hostgroupName;
+		}
+		
+		gendevice.setId(hostgroup.getString("groupid"));
+		gendevice.setDeviceType(device_type);
+		gendevice.setService(service);
+		gendevice.setName(newHostgroupName);
 
 		gendevice.setSource(String.format("%s", endpoint.getConfiguration().getSource()));
 		

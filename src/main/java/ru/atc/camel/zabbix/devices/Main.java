@@ -83,6 +83,9 @@ public class Main {
 		    			+ "password={{password}}&"
 		    			+ "adaptername={{adaptername}}&"
 		    			+ "source={{source}}&"
+		    			+ "groupCiPattern={{zabbix_group_ci_pattern}}&"
+		    			+ "groupSearchPattern={{zabbix_group_search_pattern}}&"
+		    			+ "itemCiPattern={{zabbix_item_ke_pattern}}&"
 		    			+ "zabbixip={{zabbixip}}")
 
 		    		.marshal(myJson)
@@ -93,7 +96,7 @@ public class Main {
 						.log("*** Device: ${id} ${header.DeviceId}")
 					.otherwise()
 						.to("activemq:{{eventsqueue}}")
-						.log("*** Event: ${id} ${header.DeviceId}")
+						.log("*** Error: ${id} ${header.DeviceId}")
 					.end()
 					
 		    		.log("${id} ${header.DeviceId} ${header.DeviceType} ");
