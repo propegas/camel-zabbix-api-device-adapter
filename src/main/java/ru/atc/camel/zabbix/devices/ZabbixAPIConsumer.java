@@ -105,14 +105,14 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		return timeout;
 	}
 
-	private int processSearchDevices() throws ClientProtocolException, IOException, Exception {
+	private int processSearchDevices() throws Exception, Error {
 
 		// Long timestamp;
 
-		List<Device> hostsList = new ArrayList<Device>();
-		List<Device> itemsList = new ArrayList<Device>();
+		List<Device> hostsList;
+		List<Device> itemsList;
 		
-		List<Device> hostgroupsList = new ArrayList<Device>();
+		List<Device> hostgroupsList;
 		List<Device> listFinal = new ArrayList<Device>();
 
 		String eventsuri = endpoint.getConfiguration().getZabbixapiurl();
@@ -156,14 +156,14 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			itemsList = getAllCiItems(zabbixApi);
 			if (itemsList != null)
 				listFinal.addAll(itemsList);
-			
-		
-			for (int i = 0; i < listFinal.size(); i++) {
+
+
+			for (Device aListFinal : listFinal) {
 				logger.info("Create Exchange container");
 				Exchange exchange = getEndpoint().createExchange();
-				exchange.getIn().setBody(listFinal.get(i), Device.class);
-				exchange.getIn().setHeader("DeviceId", listFinal.get(i).getId());
-				exchange.getIn().setHeader("DeviceType", listFinal.get(i).getDeviceType());
+				exchange.getIn().setBody(aListFinal, Device.class);
+				exchange.getIn().setHeader("DeviceId", aListFinal.getId());
+				exchange.getIn().setHeader("DeviceType", aListFinal.getDeviceType());
 				exchange.getIn().setHeader("queueName", "Devices");
 
 				try {
@@ -183,26 +183,23 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			genErrorMessage(e.getMessage() + " " + e.toString());
 			httpClient.close();
 			return 0;
-		} catch (Error e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			logger.error(String.format("Error while get Devices from API: %s ", e));
-			genErrorMessage(e.getMessage() + " " + e.toString());
-			httpClient.close();
-			zabbixApi.destory();
-			return 0;
 		} catch (Throwable e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			logger.error(String.format("Error while get Devices from API: %s ", e));
 			genErrorMessage(e.getMessage() + " " + e.toString());
 			httpClient.close();
-			zabbixApi.destory();
+			if (zabbixApi != null) {
+				zabbixApi.destory();
+			}
 			return 0;
 		} finally {
-			logger.debug(String.format(" **** Close zabbixApi Client: %s", zabbixApi.toString()));
+			logger.debug(String.format(" **** Close zabbixApi Client: %s",
+					zabbixApi != null ? zabbixApi.toString() : null));
 			// httpClient.close();
-			zabbixApi.destory();
+			if (zabbixApi != null) {
+				zabbixApi.destory();
+			}
 			// dataSource.close();
 			// return 0;
 		}
@@ -258,17 +255,15 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			e.printStackTrace();
 			throw new RuntimeException("Failed get JSON response result for all CI Items.");
 		}
-		List<Device> deviceList = new ArrayList<Device>();
+		List<Device> deviceList = new ArrayList<>();
 		
-		List<Device> listFinal = new ArrayList<Device>();
-		
-		String device_type = "host";
-		String ParentID = "";
-		String newcitname = "";
+		List<Device> listFinal = new ArrayList<>();
+
+		String device_type;
+		String newcitname;
 		logger.info("Finded Zabbix CI Items : " + hostitems.size());
 
 		device_type = "item";
-		ParentID = "";
 		newcitname = "";
 		
 		HashMap<String,Object> row = new HashMap<String, Object>();
@@ -288,9 +283,9 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			if (name.matches(".*\\$\\d+.*")){
 				name = getTransformedItemName(name,	key);
 			}
-			
+
 			// get hash (ciid) and parsed name for CI item
-			// geberate Device json message
+			// generate Device json message
 			String[] checkreturn = checkItemForCi(name, hostname);
 			if ( !checkreturn[0].isEmpty() ){
 				String ciid = checkreturn[0];
@@ -321,17 +316,16 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		    //hostname = devicearr[0];
 		    
 		    
-		    Device gendevice = new Device();
+		    Device gendevice;
 			gendevice = genHostObj(devicearr[0], devicearr[1], devicearr[2], devicearr[3], devicearr[4]);
-		    deviceList.add((Device) gendevice);
+		    deviceList.add(gendevice);
 		}
 		
 		
 		listFinal.addAll(deviceList);
 		
 		return listFinal;
-			
-		
+
 	}
 
 	private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
@@ -400,7 +394,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			
 			logger.debug("*** Received JSON Group: " + hostgroup.toString());
 			
-			Device gendevice = new Device();
+			Device gendevice;
 			gendevice = genHostgroupObj(hostgroup, device_type, "");
 			deviceList.add(gendevice);
 			
@@ -557,7 +551,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 				logger.debug("******** Received JSON hostmacro: " + hostmacro.toString());
 			}
 
-			Device gendevice = new Device();
+			Device gendevice;
 			String hostnameorig = host.getString("host");
 			gendevice = genHostObj(hostnameorig, hostid, device_type, newhostname, ParentID);
 			deviceList.add(gendevice);
@@ -635,7 +629,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			
 			logger.debug("*** Finded Zabbix Item with Pattern as CI: " + itemname);
 			// save as ne CI name
-			itemname = matcher.group(1).toString().toUpperCase();
+			itemname = matcher.group(1).toUpperCase();
 
 		    // get SHA-1 hash for hostname-item block for saving as ciid
 		    // Example:
@@ -655,7 +649,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		}
 		// if Item has no CI pattern
 		else {
-			
+			// TODO
 			
 		}
 		
@@ -683,8 +677,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		String hostnameend = "";
 		//String output = "";
 		if (matcher.matches()){
-			hostnameend = matcher.group(2).toString().toUpperCase();
-			hostnamebegin = matcher.group(1).toString().toUpperCase();
+			hostnameend = matcher.group(2).toUpperCase();
+			hostnamebegin = matcher.group(1).toUpperCase();
 			logger.debug("*** hostnamebegin: " + hostnamebegin);
 			logger.debug("*** hostnameend: " + hostnameend);
 		}
@@ -713,7 +707,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	}
 
 	private void genErrorMessage(String message) {
-		// TODO Auto-generated method stub
+
 		long timestamp = System.currentTimeMillis();
 		timestamp = timestamp / 1000;
 		String textError = "Возникла ошибка при работе адаптера: ";
@@ -777,30 +771,30 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	}
 
 	private Device genHostObj(String hostname, String Id, String device_type, String newhostname, String parentID) {
-		Device gendevice = null;
-		gendevice = new Device();
+		Device genDevice;
+		genDevice = new Device();
 		
 		if (newhostname.equals("")) {
-			gendevice.setName(hostname);
+			genDevice.setName(hostname);
 		}
 		else {
-			gendevice.setName(newhostname);
+			genDevice.setName(newhostname);
 		}
 		
-		gendevice.setId(Id);
-		gendevice.setDeviceType(device_type);
-		gendevice.setHostName(hostname);
-		gendevice.setParentID(parentID);
+		genDevice.setId(Id);
+		genDevice.setDeviceType(device_type);
+		genDevice.setHostName(hostname);
+		genDevice.setParentID(parentID);
 
 		// gendevice.setDeviceState(host.getStatus());
 		// gendevice.setDeviceState(host.getOperationalStatus());
 
-		gendevice.setSource(String.format("%s", endpoint.getConfiguration().getSource()));
+		genDevice.setSource(String.format("%s", endpoint.getConfiguration().getSource()));
 		
 		logger.debug("Received device_type: " + device_type);
-		logger.debug(gendevice.toString());
+		logger.debug(genDevice.toString());
 
-		return gendevice;
+		return genDevice;
 
 	}
 	
@@ -830,7 +824,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			
 			logger.debug("*** Finded Zabbix Item key with Pattern: " + key);
 			// save as ne CI name
-			keyparams = matcher.group(2).toString();
+			keyparams = matcher.group(2);
 			
 			// get scenario and step from key params
 			//String[] params = new String[] { } ;
@@ -860,7 +854,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			logger.debug("Found Param Value Replace: " + params[paramnumber-1]);
 			
 			name = name.replaceAll("\\$"+paramnumber, params[paramnumber-1]);
-			
+
 		}
 
 		
@@ -870,10 +864,10 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		return name;
 
 	}
-	
+
 	private Device genHostgroupObj(JSONObject hostgroup, String device_type, String newhostname) {
 		
-		Device gendevice = null;
+		Device gendevice;
 		gendevice = new Device();
 		
 		String hostgroupName = hostgroup.getString("name");
@@ -904,8 +898,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		if (matcher.matches()) {
 			logger.debug("*** Finded Zabbix Group with Pattern: " + hostgroupName);
 			
-			newHostgroupName = matcher.group(2).toString();
-			service = matcher.group(1).toString();
+			newHostgroupName = matcher.group(2);
+			service = matcher.group(1);
 
 		    logger.debug("*** newHostgroupName: " + newHostgroupName );
 		    logger.debug("*** service: " + service );
@@ -931,6 +925,12 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 	}
 
+	/**
+	 * @param message erer
+	 * @param algorithm dfdfd
+	 * @return SHA-1 hash String
+	 * @throws Exception
+	 */
 	private static String hashString(String message, String algorithm)
             throws Exception {
  
@@ -947,10 +947,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	
 	private static String convertByteArrayToHexString(byte[] arrayBytes) {
         StringBuffer stringBuffer = new StringBuffer();
-        for (int i = 0; i < arrayBytes.length; i++) {
-            stringBuffer.append(Integer.toString((arrayBytes[i] & 0xff) + 0x100, 16)
-                    .substring(1));
-        }
+		for (byte arrayByte : arrayBytes) {
+			stringBuffer.append(Integer.toString((arrayByte & 0xff) + 0x100, 16)
+					.substring(1));
+		}
+
         return stringBuffer.toString();
     }
 
