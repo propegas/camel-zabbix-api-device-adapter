@@ -156,7 +156,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			// Get all Items marked as CI from Zabbix
 			// TODO Remove before send to production
 			itemsList = getAllCiItems(zabbixApi);
-			itemsList = null;
+			//itemsList = null;
 			if (itemsList != null)
 				listFinal.addAll(itemsList);
 
@@ -166,6 +166,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 				Exchange exchange = getEndpoint().createExchange();
 				exchange.getIn().setBody(aListFinal, Device.class);
 				exchange.getIn().setHeader("DeviceId", aListFinal.getId());
+                exchange.getIn().setHeader("ParentId", aListFinal.getParentID());
 				exchange.getIn().setHeader("DeviceType", aListFinal.getDeviceType());
 				exchange.getIn().setHeader("queueName", "Devices");
 
