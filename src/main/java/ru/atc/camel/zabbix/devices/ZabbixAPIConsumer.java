@@ -154,8 +154,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 				listFinal.addAll(hostgroupsList);
 			
 			// Get all Items marked as CI from Zabbix
-			// TODO Remove
-			// itemsList = getAllCiItems(zabbixApi);
+			// TODO Remove before send to production
+			itemsList = getAllCiItems(zabbixApi);
 			itemsList = null;
 			if (itemsList != null)
 				listFinal.addAll(itemsList);
@@ -277,7 +277,15 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 			
 			JSONArray host = item.getJSONArray("hosts");
 			
-			String hostname = host.getJSONObject(0).getString("host");
+			String hostHost = host.getJSONObject(0).getString("host");
+			String hostName = host.getJSONObject(0).getString("name");
+			// check hostHost or hostName for aliases pattern host--alias
+			String cihost = checkHostPattern(hostHost,hostName);
+			// if host has no aliases pattern, default hostHost
+			if (cihost == null) {
+				cihost = hostHost;
+			}
+
 			String hostid = host.getJSONObject(0).getString("hostid");
 			String name = item.get("name").toString();
 			String key = item.get("key_").toString();
@@ -289,7 +297,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
 			// get hash (ciid) and parsed name for CI item
 			// generate Device json message
-			String[] checkreturn = checkItemForCi(name, hostname);
+			String[] checkreturn = checkItemForCi(name, cihost);
 			if ( !checkreturn[0].isEmpty() ){
 				String ciid = checkreturn[0];
 				newcitname = checkreturn[1];
@@ -299,7 +307,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 	     
 	        	//row.put(ciid,openids[i]);
 				
-				String[] devicearr = new String[] { hostname, ciid, device_type, newcitname, hostid };
+				String[] devicearr = new String[] { cihost, ciid, device_type, newcitname, hostid };
 				
 				row.put(ciid, devicearr);
 				
@@ -314,11 +322,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		//String hostname = "", ciid = "", device_type = "", newcitname = "", hostid = "";
 		for (Entry<String, Object> entry: row.entrySet()){
 		    System.out.println(entry.getKey() + " = " + entry.getValue());
-		    
+
 		    String[] devicearr = (String[]) entry.getValue();
 		    //hostname = devicearr[0];
-		    
-		    
+
+
 		    Device gendevice;
 			gendevice = genHostObj(devicearr[0], devicearr[1], devicearr[2], devicearr[3], devicearr[4]);
 		    deviceList.add(gendevice);
@@ -329,6 +337,26 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		
 		return listFinal;
 
+	}
+
+	private String checkHostPattern(String hostHost, String hostName) {
+		String name = null;
+		// Example: KRL-PHOBOSAU--MSSQL
+		String[] hostreturn = new String[] { "", "" } ;
+		Pattern p = Pattern.compile("(.*)--(.*)");
+
+		logger.debug("*** Check hostName and hostHost for aliases: " + hostHost.toUpperCase());
+
+		Matcher hostHostMatcher = p.matcher(hostHost.toUpperCase());
+		Matcher hostNameMatcher = p.matcher(hostName.toUpperCase());
+		//String output = "";
+		if (hostHostMatcher.matches()){
+			name = hostHost;
+		}
+		else if (hostNameMatcher.matches()){
+			name = hostName;
+		}
+		return name;
 	}
 
 	private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
@@ -757,24 +785,20 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 		Pattern p = Pattern.compile("(.*)--(.*)");
 		
 		logger.debug("*** Check hostname for aliases: " + hostHost.toUpperCase());
-		
-		Matcher hostMatcher = p.matcher(hostHost.toUpperCase());
-		Matcher hostnameMatcher = p.matcher(hostName.toUpperCase());
+
 		String hostnamebegin = "";
 		String hostnameend = "";
 		//String output = "";
+
+		String host = checkHostPattern(hostHost,hostName);
+		Matcher hostMatcher = p.matcher(host.toUpperCase());
 		if (hostMatcher.matches()){
 			hostnameend = hostMatcher.group(2).toUpperCase();
 			hostnamebegin = hostMatcher.group(1).toUpperCase();
 			logger.debug("*** hostnamebegin: " + hostnamebegin);
 			logger.debug("*** hostnameend: " + hostnameend);
 		}
-		else if (hostnameMatcher.matches()){
-			hostnameend = hostnameMatcher.group(2).toUpperCase();
-			hostnamebegin = hostnameMatcher.group(1).toUpperCase();
-			logger.debug("*** hostnamebegin: " + hostnamebegin);
-			logger.debug("*** hostnameend: " + hostnameend);
-		}
+
 		//else return
 		//hostgroupsloop: 
 		String ParentID = "";
