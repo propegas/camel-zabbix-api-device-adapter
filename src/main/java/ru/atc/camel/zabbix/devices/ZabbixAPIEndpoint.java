@@ -26,8 +26,7 @@ public class ZabbixAPIEndpoint extends DefaultPollingEndpoint {
 
 	@Override
 	public Consumer createConsumer(Processor processor) throws Exception {
-		ZabbixAPIConsumer consumer = new ZabbixAPIConsumer(this, processor);
-        return consumer;
+		return new ZabbixAPIConsumer(this, processor);
 	}
 
 	public boolean isSingleton() {
