@@ -1,13 +1,13 @@
 package io.github.hengyunabc.zabbix.api;
 
+import com.alibaba.fastjson.JSON;
+
 import java.util.HashMap;
 import java.util.Map;
 
-import com.alibaba.fastjson.JSON;
-
 public class Request {
 	String jsonrpc = "2.0";
-	Map<String, Object> params = new HashMap<String, Object>();
+	Map<String, Object> params = new HashMap<>();
 
 	String method;
 

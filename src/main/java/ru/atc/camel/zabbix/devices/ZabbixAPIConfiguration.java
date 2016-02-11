@@ -4,33 +4,37 @@ package ru.atc.camel.zabbix.devices;
 import org.apache.camel.spi.UriParams;
 
 @UriParams
-public class ZabbixAPIConfiguration {	
-    
+public class ZabbixAPIConfiguration {
+
 	private String zabbixip;
-	
+
 	private String username;
-	
+
 	private String adaptername;
-	
+
 	private String password;
-	
+
 	private String source;
-	
+
 	private String zabbixapiurl;
-	
+
 	private String groupCiPattern;
-	
+
 	private String groupSearchPattern;
-	
+
 	private String itemCiPattern;
-	
+
 	private String itemCiSearchPattern;
-	
-	
+
+	private String itemCiParentPattern;
+
+	private String itemCiTypePattern;
+
+
 	private int lastid = 0;
-	
-    private int delay = 720;
-  
+
+	private int delay = 720;
+
 	public int getDelay() {
 		return delay;
 	}
@@ -127,5 +131,19 @@ public class ZabbixAPIConfiguration {
 		this.itemCiSearchPattern = itemCiSearchPattern;
 	}
 
+	public String getItemCiParentPattern() {
+		return itemCiParentPattern;
+	}
 
+	public void setItemCiParentPattern(String itemCiParentPattern) {
+		this.itemCiParentPattern = itemCiParentPattern;
+	}
+
+	public String getItemCiTypePattern() {
+		return itemCiTypePattern;
+	}
+
+	public void setItemCiTypePattern(String itemCiTypePattern) {
+		this.itemCiTypePattern = itemCiTypePattern;
+	}
 }
