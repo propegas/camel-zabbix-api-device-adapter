@@ -10,15 +10,11 @@ import io.github.hengyunabc.zabbix.api.RequestBuilder;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
 import org.apache.camel.impl.ScheduledPollConsumer;
-import org.apache.http.impl.client.CloseableHttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ru.at_consulting.itsm.device.Device;
 import ru.at_consulting.itsm.event.Event;
 
-import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +22,10 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import static ru.atc.zabbix.general.CiItems.*;
+
+//import ru.atc.zabbix.general.CiItems;
 
 //import java.security.KeyManagementException;
 //import java.security.KeyStore;
@@ -58,19 +58,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
     //private static String SavedWStoken;
 
-    private static CloseableHttpClient httpClient;
-
-    public enum PersistentEventSeverity {
-        OK, INFO, WARNING, MINOR, MAJOR, CRITICAL;
-
-        public String value() {
-            return name();
-        }
-
-        public static PersistentEventSeverity fromValue(String v) {
-            return valueOf(v);
-        }
-    }
+    //private static CloseableHttpClient httpClient;
 
     public ZabbixAPIConsumer(ZabbixAPIEndpoint endpoint, Processor processor) {
         super(endpoint, processor);
@@ -79,6 +67,38 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         this.setTimeUnit(TimeUnit.MINUTES);
         this.setInitialDelay(0);
         this.setDelay(endpoint.getConfiguration().getDelay());
+    }
+
+    public static void genHeartbeatMessage(Exchange exchange) {
+        // TODO Auto-generated method stub
+        long timestamp = System.currentTimeMillis();
+        timestamp = timestamp / 1000;
+        // String textError = "Возникла ошибка при работе адаптера: ";
+        Event genevent = new Event();
+        genevent.setMessage("Сигнал HEARTBEAT от адаптера");
+        genevent.setEventCategory("ADAPTER");
+        genevent.setObject("HEARTBEAT");
+        genevent.setSeverity(PersistentEventSeverity.OK.name());
+        genevent.setTimestamp(timestamp);
+        genevent.setEventsource(String.format("%s", endpoint.getConfiguration().getAdaptername()));
+
+        logger.info(" **** Create Exchange for Heartbeat Message container");
+        // Exchange exchange = getEndpoint().createExchange();
+        exchange.getIn().setBody(genevent, Event.class);
+
+        exchange.getIn().setHeader("Timestamp", timestamp);
+        exchange.getIn().setHeader("queueName", "Heartbeats");
+        exchange.getIn().setHeader("Type", "Heartbeats");
+        exchange.getIn().setHeader("Source", endpoint.getConfiguration().getAdaptername());
+
+        try {
+            // Processor processor = getProcessor();
+            // .process(exchange);
+            // processor.process(exchange);
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            // e.printStackTrace();
+        }
     }
 
     @Override
@@ -189,14 +209,14 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             e.printStackTrace();
             logger.error(String.format("Error while get Devices from API: %s ", e));
             genErrorMessage(e.getMessage() + " " + e.toString());
-            httpClient.close();
+            //httpClient.close();
             return 0;
         } catch (Throwable e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
             logger.error(String.format("Error while get Devices from API: %s ", e));
             genErrorMessage(e.getMessage() + " " + e.toString());
-            httpClient.close();
+            //httpClient.close();
             if (zabbixApi != null) {
                 zabbixApi.destory();
             }
@@ -265,17 +285,17 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         }
         List<Device> deviceList = new ArrayList<>();
 
-        List<Device> listFinal = new ArrayList<>();
+        List<Device> generatedDevicesList = new ArrayList<>();
 
         String device_type;
-        String newcitname;
+        String newCiName;
         logger.info("Finded Zabbix CI Items : " + hostitems.size());
 
         //default
         //device_type;
-        newcitname = "";
+        newCiName = "";
 
-        HashMap<String, Object> row = new HashMap<>();
+        HashMap<String, Object> finalDevicesHashMap = new HashMap<>();
 
         for (int y = 0; y < hostitems.size(); y++) {
 
@@ -287,11 +307,13 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
             String hostHost = host.getJSONObject(0).getString("host");
             String hostName = host.getJSONObject(0).getString("name");
+
             // check hostHost or hostName for aliases pattern host--alias
-            String cihost = checkHostPattern(hostHost, hostName);
-            // if host has no aliases pattern, default hostHost
-            if (cihost == null) {
-                cihost = hostHost;
+            //String ciHostAliasName = new CiItems().checkHostPattern(hostHost, hostName);
+            String ciHostAliasName = checkHostPattern(hostHost, hostName);
+            // if host has no ci aliases pattern use default hostHost
+            if (ciHostAliasName == null) {
+                ciHostAliasName = hostHost;
             }
 
             String hostid = host.getJSONObject(0).getString("hostid");
@@ -305,73 +327,49 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
             // get hash (ciid) and parsed name for CI item
             // generate Device json message
-            String[] checkreturn = checkItemForCi(name, cihost);
-            if (!checkreturn[0].isEmpty()) {
-                String ciid = checkreturn[0];
-                newcitname = checkreturn[1];
+            String[] returnCiArray = checkItemForCi(name, hostid, ciHostAliasName,
+                    ZabbixAPIConsumer.endpoint.getConfiguration().getItemCiPattern(),
+                    ZabbixAPIConsumer.endpoint.getConfiguration().getItemCiParentPattern(),
+                    ZabbixAPIConsumer.endpoint.getConfiguration().getItemCiTypePattern());
+            if (!returnCiArray[0].isEmpty()) {
+                String ciid = returnCiArray[0];
+                newCiName = returnCiArray[1];
                 //devicetype
-                if (!checkreturn[2].equals(""))
-                    device_type = checkreturn[2];
+                if (!returnCiArray[2].equals(""))
+                    device_type = returnCiArray[2];
                 //parentid
-                if (!checkreturn[3].equals(""))
-                    hostid = checkreturn[3];
+                if (!returnCiArray[3].equals(""))
+                    hostid = returnCiArray[3];
 
-                //int columns = 2;
-                //HashMap<String,Object> row = new HashMap<String, Object>();
-
-                //row.put(ciid,openids[i]);
-
-                String[] devicearr = new String[]{cihost, ciid, device_type, newcitname, hostid};
-                logger.debug("*** Add Zabbix CI id Item to HASH : " + devicearr[0] + " " + ciid);
-
-                row.put(ciid, devicearr);
+                // add device as an array to hash-map to exclude duplicates of ci-items
+                // using ciid as a key
+                String[] deviceArray = new String[]{ciHostAliasName, ciid, device_type, newCiName, hostid};
+                logger.debug("*** Add Zabbix CI id Item to HASH : " + deviceArray[0] + " " + ciid);
+                finalDevicesHashMap.put(ciid, deviceArray);
 
             }
 
-            // JSONArray hostgroups = host.getJSONArray("groups");
-
-            //logger.debug("******** Received JSON hostitem: " + hostitem.toString());
         }
 
 		/* Display content using Iterator*/
         //String hostname = "", ciid = "", device_type = "", newcitname = "", hostid = "";
-        for (Entry<String, Object> entry : row.entrySet()) {
-            System.out.println(entry.getKey() + " = " + entry.getValue());
+        for (Entry<String, Object> deviceHashEntry : finalDevicesHashMap.entrySet()) {
+            //System.out.println(deviceHashEntry.getKey() + " = " + deviceHashEntry.getValue());
+            logger.debug(deviceHashEntry.getKey() + " = " + deviceHashEntry.getValue());
 
-            String[] devicearr = (String[]) entry.getValue();
+            String[] deviceArray = (String[]) deviceHashEntry.getValue();
             //hostname = devicearr[0];
 
-
-            Device gendevice;
-            gendevice = genHostObj(devicearr[0], devicearr[1], devicearr[2], devicearr[3], devicearr[4]);
-            logger.debug("*** NEW DEVICE: ", gendevice.toString());
-            deviceList.add(gendevice);
+            Device generatedDevice;
+            generatedDevice = genHostObj(deviceArray[0], deviceArray[1], deviceArray[2], deviceArray[3], deviceArray[4]);
+            logger.debug("*** NEW DEVICE: ", generatedDevice.toString());
+            deviceList.add(generatedDevice);
         }
 
+        generatedDevicesList.addAll(deviceList);
 
-        listFinal.addAll(deviceList);
+        return generatedDevicesList;
 
-        return listFinal;
-
-    }
-
-    private String checkHostPattern(String hostHost, String hostName) {
-        String name = null;
-        // Example: KRL-PHOBOSAU--MSSQL
-        //String[] hostreturn = new String[] { "", "" } ;
-        Pattern p = Pattern.compile("(.*)--(.*)");
-
-        logger.debug("*** Check hostName and hostHost for aliases: " + hostHost.toUpperCase());
-
-        Matcher hostHostMatcher = p.matcher(hostHost.toUpperCase());
-        Matcher hostNameMatcher = p.matcher(hostName.toUpperCase());
-        //String output = "";
-        if (hostHostMatcher.matches()) {
-            name = hostHost;
-        } else if (hostNameMatcher.matches()) {
-            name = hostName;
-        }
-        return name;
     }
 
     private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
@@ -517,7 +515,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             // Example: KRL-PHOBOSAU--MSSQL
             if (hostHost.matches("(.*)--(.*)") || hostName.matches("(.*)--(.*)")) {
 
-                logger.info(String.format("Finded Zabbix Host with Aliases: %s (%s)", hostHost, hostName));
+                logger.debug(String.format("Finded Zabbix Host with Aliases: %s (%s)", hostHost, hostName));
                 String[] checkreturn = checkHostAliases(hosts, hostHost, hostName);
                 ParentID = checkreturn[0];
                 newhostname = checkreturn[1];
@@ -741,177 +739,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
     }
 
 
-    private String[] checkItemForCi(String itemname, String hostname) {
 
-        //logger.debug("*** Received Zabbix Item : " + itemname);
-
-        // Example item as CI :
-        // [test CI item] bla-bla
-        // [CI 2 (CIITEM)::CI 3 (CIITEM2)] trapper item status
-
-        // zabbix_item_ke_pattern=\\[(.*)\\](.*)
-        String zabbix_item_ke_pattern = endpoint.getConfiguration().getItemCiPattern();
-        Pattern itemWithCiPattern = Pattern.compile(zabbix_item_ke_pattern);
-
-        // zabbix_item_ci_parent_pattern=(.*)::(.*)
-        String zabbix_item_ci_parent_pattern = endpoint.getConfiguration().getItemCiParentPattern();
-        Pattern ciWithParentPattern = Pattern.compile(zabbix_item_ci_parent_pattern);
-
-        // zabbix_item_ci_type_pattern=(.*)\\((.*)\\)
-        String zabbix_item_ci_type_pattern = endpoint.getConfiguration().getItemCiTypePattern();
-        Pattern ciWithTypePattern = Pattern.compile(zabbix_item_ci_type_pattern);
-
-        Matcher matcher = itemWithCiPattern.matcher(itemname);
-        String ciid = "";
-        String newitemname = "";
-        String ciname;
-        String devicetype = "";
-        String parentitem;
-        String parentid = "";
-        //String hostnameend = "";
-
-        // if Item has CI pattern
-        // [CI 2 (CIITEM)::CI 3 (CIITEM2)] trapper item status
-        if (matcher.matches()) {
-
-            logger.debug("*** Finded Zabbix Item with Pattern as CI: " + itemname);
-
-            // save as CI name
-            newitemname = matcher.group(1).toUpperCase();
-
-            ciname = newitemname;
-
-            logger.debug("*** newitemname: " + newitemname);
-
-            // CI 2 (CIITEM)::CI 3 (CIITEM2)
-            Matcher matcher2 = ciWithParentPattern.matcher(newitemname);
-            if (matcher2.matches()) {
-                logger.debug("*** Finded Zabbix Item with Pattern with Parent: " + newitemname);
-                newitemname = matcher2.group(2).trim().toUpperCase();
-
-                ciname = newitemname;
-
-                parentitem = matcher2.group(1).trim().toUpperCase();
-                logger.debug("*** newitemname: " + newitemname);
-                logger.debug("*** parentitem: " + parentitem);
-
-                logger.debug(String.format("*** Trying to generate hash for ParentItem with Pattern: %s:%s",
-                        hostname, parentitem));
-                String hash = "";
-                try {
-                    hash = hashString(String.format("%s:%s", hostname, parentitem), "SHA-1");
-                } catch (Exception e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-                logger.debug("*** Generated Hash: " + hash);
-                parentid = hash;
-
-            }
-
-            // CI 2 (CIITEM)
-            Matcher matcher3 = ciWithTypePattern.matcher(newitemname);
-            if (matcher3.matches()) {
-                logger.debug("*** Finded Zabbix Item with Pattern with Type: " + newitemname);
-                newitemname = matcher3.group(1).trim().toUpperCase();
-                devicetype = matcher3.group(2).trim().toUpperCase();
-                logger.debug("*** newitemname: " + newitemname);
-                logger.debug("*** devicetype: " + devicetype);
-            }
-
-            // get SHA-1 hash for hostname-item block for saving as ciid
-            // Example:
-            // KRL-PHOBOSAU--PHOBOS:TEST CI ITEM
-            logger.debug(String.format("*** Trying to generate hash for Item with Pattern: %s:%s",
-                    hostname, ciname));
-            String hash = "";
-            try {
-                hash = hashString(String.format("%s:%s", hostname, ciname), "SHA-1");
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
-            logger.debug("*** Generated Hash: " + hash);
-            ciid = hash;
-
-            //event.setParametr(itemname);
-        }
-        // if Item has no CI pattern
-        else {
-            // TODO
-
-        }
-
-        // id, name, type, parentid
-        String[] hostreturn = new String[]{"", "", "", ""};
-        hostreturn[0] = ciid;
-        hostreturn[1] = newitemname;
-        hostreturn[2] = devicetype;
-        hostreturn[3] = parentid;
-        //hostreturn[1] = hostnameend;
-
-        logger.debug("New Zabbix CI ID: " + hostreturn[0]);
-        logger.debug("New Zabbix CI Name: " + hostreturn[1]);
-        logger.debug("New Zabbix DeviceType: " + hostreturn[2]);
-        logger.debug("New Zabbix ParentID: " + hostreturn[3]);
-
-        return hostreturn;
-    }
-
-    private String[] checkHostAliases(JSONArray hosts, String hostHost, String hostName) {
-
-        // Example: KRL-PHOBOSAU--MSSQL
-        String[] hostreturn = new String[]{"", ""};
-        Pattern p = Pattern.compile("(.*)--(.*)");
-
-        logger.debug("*** Check hostname for aliases: " + hostHost.toUpperCase());
-
-        String hostnamebegin = "";
-        String hostnameend = "";
-        //String output = "";
-
-        String host = checkHostPattern(hostHost, hostName);
-        Matcher hostMatcher = p.matcher(host.toUpperCase());
-        if (hostMatcher.matches()) {
-            hostnameend = hostMatcher.group(2).toUpperCase();
-            hostnamebegin = hostMatcher.group(1).toUpperCase();
-            logger.debug("*** hostnamebegin: " + hostnamebegin);
-            logger.debug("*** hostnameend: " + hostnameend);
-        }
-
-        //else return
-        //hostgroupsloop:
-        String ParentID = "";
-        int j = 0;
-        while (j < hosts.size()) {
-            // logger.debug(f.toString());
-            // ZabbixAPIHost host = new ZabbixAPIHost();
-            JSONObject host_a = hosts.getJSONObject(j);
-            String compareHost = host_a.getString("host");
-            logger.debug("*** Compare with hosthost: " + compareHost);
-            if (compareHost.equalsIgnoreCase(hostnamebegin)) {
-                ParentID = host_a.getString("hostid");
-                break;
-            }
-
-            String compareName = host_a.getString("name");
-            logger.debug("*** Compare with hostname: " + compareName);
-            if (compareName.equalsIgnoreCase(hostnamebegin)) {
-                ParentID = host_a.getString("hostid");
-                break;
-
-            }
-            j++;
-        }
-
-        hostreturn[0] = ParentID;
-        hostreturn[1] = hostnameend;
-
-        logger.info("New Zabbix Host ParentID: " + hostreturn[0]);
-        logger.info("New Zabbix Host Name: " + hostreturn[1]);
-
-        return hostreturn;
-    }
 
     private void genErrorMessage(String message) {
 
@@ -943,38 +771,6 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             e.printStackTrace();
         }
 
-    }
-
-    public static void genHeartbeatMessage(Exchange exchange) {
-        // TODO Auto-generated method stub
-        long timestamp = System.currentTimeMillis();
-        timestamp = timestamp / 1000;
-        // String textError = "Возникла ошибка при работе адаптера: ";
-        Event genevent = new Event();
-        genevent.setMessage("Сигнал HEARTBEAT от адаптера");
-        genevent.setEventCategory("ADAPTER");
-        genevent.setObject("HEARTBEAT");
-        genevent.setSeverity(PersistentEventSeverity.OK.name());
-        genevent.setTimestamp(timestamp);
-        genevent.setEventsource(String.format("%s", endpoint.getConfiguration().getAdaptername()));
-
-        logger.info(" **** Create Exchange for Heartbeat Message container");
-        // Exchange exchange = getEndpoint().createExchange();
-        exchange.getIn().setBody(genevent, Event.class);
-
-        exchange.getIn().setHeader("Timestamp", timestamp);
-        exchange.getIn().setHeader("queueName", "Heartbeats");
-        exchange.getIn().setHeader("Type", "Heartbeats");
-        exchange.getIn().setHeader("Source", endpoint.getConfiguration().getAdaptername());
-
-        try {
-            // Processor processor = getProcessor();
-            // .process(exchange);
-            // processor.process(exchange);
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            // e.printStackTrace();
-        }
     }
 
     private Device genHostObj(String hostname, String Id, String device_type, String newhostname, String parentID) {
@@ -1011,79 +807,13 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
     }
 
-    private String getTransformedItemName(String name, String key) {
-
-        //String transformedname = "";
-        //String webstep = "";
-
-        // get params from key to item $1 placeholder
-        // Example:
-        // vfs.fs.size[/oracle,pfree]
-
-        Pattern p = Pattern.compile("(.*)\\[(.*)\\]");
-        Matcher matcher = p.matcher(key);
-
-        String keyparams;
-        //String webscenario = "";
-        //String webstep = "";
-
-        String[] params = new String[]{};
-
-        // if Web Item has webscenario pattern
-        // Example:
-        // web.test.in[WebScenario,,bps]
-        if (matcher.matches()) {
-
-            logger.debug("*** Finded Zabbix Item key with Pattern: " + key);
-            // save as ne CI name
-            keyparams = matcher.group(2);
-
-            // get scenario and step from key params
-            //String[] params = new String[] { } ;
-            params = keyparams.split(",");
-            logger.debug(String.format("*** Finded Zabbix Item key params (size): %d ", params.length));
-
-            //logger.debug(String.format("*** Finded Zabbix Item key params: %s:%s ", webscenario, webstep));
-
-
-        }
-        // if Item has no CI pattern
-        else {
-
-
-        }
-
-        logger.debug("Item name: " + name);
-
-        String param;
-        int paramnumber;
-        Matcher m = Pattern.compile("\\$\\d+").matcher(name);
-        while (m.find()) {
-            param = m.group(0);
-            paramnumber = Integer.parseInt(param.substring(1));
-            logger.debug("Found Param: " + paramnumber);
-            logger.debug("Found Param Value: " + param);
-            logger.debug("Found Param Value Replace: " + params[paramnumber - 1]);
-
-            name = name.replaceAll("\\$" + paramnumber, params[paramnumber - 1]);
-
-        }
-
-
-        //logger.debug("New Zabbix Web Item Scenario: " + webelements[0]);
-        logger.debug("New Zabbix Item Name: " + name);
-
-        return name;
-
-    }
-
     private Device genHostgroupObj(JSONObject hostgroup, String device_type, String newhostname) {
 
         Device gendevice;
         gendevice = new Device();
 
         String hostgroupName = hostgroup.getString("name");
-		/*
+        /*
 		if (newhostname.equals("")) {
 			gendevice.setName(hostgroupName);
 		}
@@ -1137,34 +867,18 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
     }
 
-    /**
-     * @param message   erer
-     * @param algorithm dfdfd
-     * @return SHA-1 hash String
-     * @throws Exception
-     */
-    private static String hashString(String message, String algorithm)
-            throws Exception {
 
-        try {
-            MessageDigest digest = MessageDigest.getInstance(algorithm);
-            byte[] hashedBytes = digest.digest(message.getBytes("UTF-8"));
+    public enum PersistentEventSeverity {
+        OK, INFO, WARNING, MINOR, MAJOR, CRITICAL;
 
-            return convertByteArrayToHexString(hashedBytes);
-        } catch (NoSuchAlgorithmException | UnsupportedEncodingException ex) {
-            throw new RuntimeException(
-                    "Could not generate hash from String", ex);
+        public static PersistentEventSeverity fromValue(String v) {
+            return valueOf(v);
+        }
+
+        public String value() {
+            return name();
         }
     }
 
-    private static String convertByteArrayToHexString(byte[] arrayBytes) {
-        StringBuffer stringBuffer = new StringBuffer();
-        for (byte arrayByte : arrayBytes) {
-            stringBuffer.append(Integer.toString((arrayByte & 0xff) + 0x100, 16)
-                    .substring(1));
-        }
-
-        return stringBuffer.toString();
-    }
 
 }
