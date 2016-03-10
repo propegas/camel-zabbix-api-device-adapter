@@ -30,6 +30,8 @@ public class ZabbixAPIConfiguration {
 
 	private String itemCiTypePattern;
 
+    private String zabbixDevicesVMwareTemplatePattern;
+
 
 	private int lastid = 0;
 
@@ -145,5 +147,13 @@ public class ZabbixAPIConfiguration {
 
 	public void setItemCiTypePattern(String itemCiTypePattern) {
 		this.itemCiTypePattern = itemCiTypePattern;
-	}
+    }
+
+    public String getZabbixDevicesVMwareTemplatePattern() {
+        return zabbixDevicesVMwareTemplatePattern;
+    }
+
+    public void setZabbixDevicesVMwareTemplatePattern(String zabbixDevicesVMwareTemplatePattern) {
+        this.zabbixDevicesVMwareTemplatePattern = zabbixDevicesVMwareTemplatePattern;
+    }
 }
