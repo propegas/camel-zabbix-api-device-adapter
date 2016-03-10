@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import ru.at_consulting.itsm.device.Device;
 
 import javax.jms.ConnectionFactory;
+import java.io.File;
 import java.util.Objects;
 
 //import org.apache.camel.processor.idempotent.FileIdempotentRepository;
@@ -22,9 +23,9 @@ import java.util.Objects;
 
 public class Main {
 
-    private static Logger logger = LoggerFactory.getLogger(Main.class);
     public static String activemq_port = null;
     public static String activemq_ip = null;
+    private static Logger logger = LoggerFactory.getLogger(Main.class);
 
     public static void main(String[] args) throws Exception {
 
@@ -67,11 +68,14 @@ public class Main {
                 getContext().addComponent("activemq", JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
 
 
+                File cachefile = new File("sendedDevices.dat");
+                cachefile.createNewFile();
+
                 // Heartbeats
                 from("timer://foo?period={{heartbeatsdelay}}")
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
-                                ZabbixAPIConsumer.genHeartbeatMessage(exchange);
+                                ZabbixAPIConsumer.genHeartbeatMessage(exchange, "1");
                             }
                         })
                         //.bean(WsdlNNMConsumer.class, "genHeartbeatMessage", exchange)
@@ -99,7 +103,8 @@ public class Main {
                         .choice()
                         .when(header("queueName").isEqualTo("Devices"))
                         .to("activemq:{{devicesqueue}}")
-                        .log("*** Device: ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ")
+                        .log("*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .endChoice()
                         .otherwise()
                         .to("activemq:{{eventsqueue}}")
                         .log("*** Error: ${id} ${header.DeviceId}")
@@ -107,6 +112,36 @@ public class Main {
 
                         .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
                 //.to("activemq:{{devicesqueue}}");
+
+                from("zabbixapi://vmdevices?"
+                        + "delay={{vmdelay}}&"
+                        + "zabbixapiurl={{zabbixapiurl}}&"
+                        + "username={{username}}&"
+                        + "password={{password}}&"
+                        + "adaptername={{adaptername}}&"
+                        + "source={{source}}&"
+                        + "groupCiPattern={{zabbix_group_ci_pattern}}&"
+                        + "groupSearchPattern={{zabbix_group_search_pattern}}&"
+                        + "itemCiPattern={{zabbix_item_ke_pattern}}&"
+                        + "itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&"
+                        + "itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&"
+                        + "itemCiTypePattern={{zabbix_item_ci_type_pattern}}&"
+                        + "zabbixDevicesVMwareTemplatePattern={{zabbixDevicesVMwareTemplatePattern}}&"
+                        + "zabbixip={{zabbixip}}")
+
+                        .marshal(myJson)
+
+                        .choice()
+                        .when(header("queueName").isEqualTo("Devices"))
+                        .to("activemq:{{devicesqueue}}")
+                        .log("*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .endChoice()
+                        .otherwise()
+                        .to("activemq:{{eventsqueue}}")
+                        .log("*** Error: ${id} ${header.DeviceId}")
+                        .end()
+
+                        .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
             }
         });
 
