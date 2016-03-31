@@ -240,7 +240,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
         HttpClient httpClient2 = HttpClients.custom()
                 .setConnectionTimeToLive(120, TimeUnit.SECONDS)
-                .setMaxConnTotal(400).setMaxConnPerRoute(400)
+                .setMaxConnTotal(40).setMaxConnPerRoute(40)
                 .setDefaultRequestConfig(RequestConfig.custom()
                         .setSocketTimeout(120000).setConnectTimeout(10000).build())
                 .setRetryHandler(new DefaultHttpRequestRetryHandler(5, true))
@@ -455,7 +455,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             }
 
             // get hash (ciid) and parsed name for CI item
-            // generate Device json message
+
             String[] returnCiArray = checkItemForCi(name, hostid, ciHostAliasName,
                     this.endpoint.getConfiguration().getItemCiPattern(),
                     this.endpoint.getConfiguration().getItemCiParentPattern(),
@@ -470,10 +470,29 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                 if (!returnCiArray[3].equals(""))
                     hostid = returnCiArray[3];
 
+                // add pseudo-CI (as a group) for devicetype
+                // String hostname, String Id, String device_type, String Name, String parentID
+                if (!device_type.equals("") && !hostid.equals("")) {
+
+                    // create link of CiGroup to host or item as a parent
+                    String pseudoCiId = String.format("%s.%s", hostid, device_type);
+
+                    String[] deviceArray = new String[]{ciHostAliasName, pseudoCiId, "CiGroup", device_type, hostid};
+                    logger.debug(String.format("*** Add Zabbix Pseudo CI (CiGroup) to HASH : %s %s",
+                            deviceArray[0], pseudoCiId));
+                    finalDevicesHashMap.put(pseudoCiId, deviceArray);
+
+                    // re-write link of CI to new CiGroup as a parent
+                    hostid = pseudoCiId;
+
+                }
+
                 // add device as an array to hash-map to exclude duplicates of ci-items
                 // using ciid as a key
+                // String hostname, String Id, String device_type, String newhostname, String parentID
                 String[] deviceArray = new String[]{ciHostAliasName, ciid, device_type, newCiName, hostid};
-                logger.debug("*** Add Zabbix CI id Item to HASH : " + deviceArray[0] + " " + ciid);
+                logger.debug(String.format("*** Add Zabbix CI Item to HASH : %s %s",
+                        deviceArray[0], ciid));
                 finalDevicesHashMap.put(ciid, deviceArray);
 
             }
@@ -489,6 +508,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             String[] deviceArray = (String[]) deviceHashEntry.getValue();
             //hostname = devicearr[0];
 
+            // generate Device json message
             Device generatedDevice;
             generatedDevice = genHostObj(deviceArray[0], deviceArray[1], deviceArray[2], deviceArray[3], deviceArray[4]);
             logger.debug("*** NEW DEVICE: ", generatedDevice.toString());
@@ -853,14 +873,14 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
     }
 
-    private Device genHostObj(String hostname, String Id, String device_type, String newhostname, String parentID) {
+    private Device genHostObj(String hostname, String Id, String device_type, String Name, String parentID) {
         Device genDevice;
         genDevice = new Device();
 
-        if (newhostname.equals("")) {
+        if (Name.equals("")) {
             genDevice.setName(hostname);
         } else {
-            genDevice.setName(newhostname);
+            genDevice.setName(Name);
         }
 
         String parentid = parentID;
