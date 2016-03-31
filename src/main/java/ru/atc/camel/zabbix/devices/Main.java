@@ -15,17 +15,20 @@ import org.slf4j.LoggerFactory;
 import ru.at_consulting.itsm.device.Device;
 
 import javax.jms.ConnectionFactory;
-import java.io.File;
 import java.util.Objects;
 
 //import org.apache.camel.processor.idempotent.FileIdempotentRepository;
 //import ru.at_consulting.itsm.event.Event;
 
-public class Main {
+public final class Main {
 
-    public static String activemq_port = null;
-    public static String activemq_ip = null;
-    private static Logger logger = LoggerFactory.getLogger(Main.class);
+    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static String activemq_port;
+    private static String activemq_ip;
+
+    private Main() {
+
+    }
 
     public static void main(String[] args) throws Exception {
 
@@ -48,6 +51,7 @@ public class Main {
         org.apache.camel.main.Main main = new org.apache.camel.main.Main();
         main.enableHangupSupport();
 
+        //CHECKSTYLE:OFF: checkstyle:anoninnerlength
         main.addRouteBuilder(new RouteBuilder() {
 
             @Override
@@ -57,19 +61,14 @@ public class Main {
                 myJson.setPrettyPrint(true);
                 myJson.setLibrary(JsonLibrary.Jackson);
                 myJson.setJsonView(Device.class);
-                //myJson.setPrettyPrint(true);
 
                 PropertiesComponent properties = new PropertiesComponent();
                 properties.setLocation("classpath:zabbixapi.properties");
                 getContext().addComponent("properties", properties);
 
-                ConnectionFactory connectionFactory = new ActiveMQConnectionFactory
-                        ("tcp://" + activemq_ip + ":" + activemq_port);
+                ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
+                        "tcp://" + activemq_ip + ":" + activemq_port);
                 getContext().addComponent("activemq", JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
-
-
-                File cachefile = new File("sendedDevices.dat");
-                cachefile.createNewFile();
 
                 // Heartbeats
                 from("timer://foo?period={{heartbeatsdelay}}")
@@ -78,25 +77,26 @@ public class Main {
                                 ZabbixAPIConsumer.genHeartbeatMessage(exchange, "1");
                             }
                         })
-                        //.bean(WsdlNNMConsumer.class, "genHeartbeatMessage", exchange)
                         .marshal(myJson)
                         .to("activemq:{{heartbeatsqueue}}")
                         .log("*** Heartbeat: ${id}");
 
-                from("zabbixapi://devices?"
-                        + "delay={{delay}}&"
-                        + "zabbixapiurl={{zabbixapiurl}}&"
-                        + "username={{username}}&"
-                        + "password={{password}}&"
-                        + "adaptername={{adaptername}}&"
-                        + "source={{source}}&"
-                        + "groupCiPattern={{zabbix_group_ci_pattern}}&"
-                        + "groupSearchPattern={{zabbix_group_search_pattern}}&"
-                        + "itemCiPattern={{zabbix_item_ke_pattern}}&"
-                        + "itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&"
-                        + "itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&"
-                        + "itemCiTypePattern={{zabbix_item_ci_type_pattern}}&"
-                        + "zabbixip={{zabbixip}}")
+                from(new StringBuilder()
+                        .append("zabbixapi://devices?")
+                        .append("delay={{delay}}&")
+                        .append("zabbixapiurl={{zabbixapiurl}}&")
+                        .append("username={{username}}&")
+                        .append("password={{password}}&")
+                        .append("adaptername={{adaptername}}&")
+                        .append("source={{source}}&")
+                        .append("groupCiPattern={{zabbix_group_ci_pattern}}&")
+                        .append("groupSearchPattern={{zabbix_group_search_pattern}}&")
+                        .append("itemCiPattern={{zabbix_item_ke_pattern}}&")
+                        .append("itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&")
+                        .append("itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&")
+                        .append("itemCiTypePattern={{zabbix_item_ci_type_pattern}}&")
+                        .append("zabbixip={{zabbixip}}")
+                        .toString())
 
                         .marshal(myJson)
 
@@ -111,23 +111,24 @@ public class Main {
                         .end()
 
                         .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
-                //.to("activemq:{{devicesqueue}}");
 
-                from("zabbixapi://vmdevices?"
-                        + "delay={{vmdelay}}&"
-                        + "zabbixapiurl={{zabbixapiurl}}&"
-                        + "username={{username}}&"
-                        + "password={{password}}&"
-                        + "adaptername={{adaptername}}&"
-                        + "source={{source}}&"
-                        + "groupCiPattern={{zabbix_group_ci_pattern}}&"
-                        + "groupSearchPattern={{zabbix_group_search_pattern}}&"
-                        + "itemCiPattern={{zabbix_item_ke_pattern}}&"
-                        + "itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&"
-                        + "itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&"
-                        + "itemCiTypePattern={{zabbix_item_ci_type_pattern}}&"
-                        + "zabbixDevicesVMwareTemplatePattern={{zabbixDevicesVMwareTemplatePattern}}&"
-                        + "zabbixip={{zabbixip}}")
+                from(new StringBuilder()
+                        .append("zabbixapi://vmdevices?")
+                        .append("delay={{vmdelay}}&")
+                        .append("zabbixapiurl={{zabbixapiurl}}&")
+                        .append("username={{username}}&")
+                        .append("password={{password}}&")
+                        .append("adaptername={{adaptername}}&")
+                        .append("source={{source}}&")
+                        .append("groupCiPattern={{zabbix_group_ci_pattern}}&")
+                        .append("groupSearchPattern={{zabbix_group_search_pattern}}&")
+                        .append("itemCiPattern={{zabbix_item_ke_pattern}}&")
+                        .append("itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&")
+                        .append("itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&")
+                        .append("itemCiTypePattern={{zabbix_item_ci_type_pattern}}&")
+                        .append("zabbixDevicesVMwareTemplatePattern={{zabbixDevicesVMwareTemplatePattern}}&")
+                        .append("zabbixip={{zabbixip}}")
+                        .toString())
 
                         .marshal(myJson)
 
@@ -144,6 +145,8 @@ public class Main {
                         .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
             }
         });
+
+        //CHECKSTYLE:ON: checkstyle:anoninnerlength
 
         main.run();
     }

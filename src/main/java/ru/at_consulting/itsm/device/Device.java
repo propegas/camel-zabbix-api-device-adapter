@@ -1,6 +1,5 @@
 package ru.at_consulting.itsm.device;
 
-
 import java.io.Serializable;
 //import java.util.Collection;
 //import java.util.List;
@@ -14,180 +13,167 @@ import java.io.Serializable;
 //import javax.persistence.Table;
 //import javax.persistence.ElementCollection;
 
-public class Device implements  Serializable {
-	
-	/**
-     * 
-      */
-     private static final long serialVersionUID = 1L;
+public class Device implements Serializable {
 
-//   @Consume(uri="activemq:Events.pojo")
-     
-//     @Id
+    /**
+     *
+     */
+    private static final long serialVersionUID = 1L;
+
+    //   @Consume(uri="activemq:Events.pojo")
+    //@Column(name = "Mc_host", nullable = true)
+    private String modelNumber;
+    //     @Id
 //     @GeneratedValue
-     //@Column(name = "id")
-     private String id;
-     
-     //@Column(name = "Date_reception")
-     private String DeviceType;
-     
-     private String Source;
-     
-     private String Service;
-     
-     private String DeviceState;
-     
-     //@Column(name = "Severity", nullable = true)
-     private String serialNumber;
-     
-     //@Column(name = "Msg", nullable = true)
-     private String CommState;
-     
-     //@Column(name = "Status", nullable = true)
-     private String modelName;
-     
-     //@Column(name = "Mc_host", nullable = true)
-     public String modelNumber;
-     
-     //@Column(name = "Mc_object", nullable = true)
-     private String location;
-     
-     private String hostName; 
-     
-     private String name; 
-     
-     private String ipAddress; 
-     
-     private String parentID;
-     
-     
-    
-     public void onDevice(String body) {
-           
-     }
-     
-        @Override
-        public String toString() {
-             return ("Device: "+ this.getId() +
-            		     " ParentId: "+ this.getParentID() +
-                         " on host: "+ this.getHostName() +
-                         " name: "+ this.getName() +
-                         " serial number: "+ this.getSerialNumber() +
-                         " location: "+ this.getLocation() +
-                         " device state: "+ this.getDeviceState() +
-             			 " comm state: "+ this.getCommState());
-        }
+    //@Column(name = "id")
+    private String id;
+    //@Column(name = "Date_reception")
+    private String deviceType;
+    private String source;
+    private String service;
+    private String deviceState;
+    //@Column(name = "Severity", nullable = true)
+    private String serialNumber;
+    //@Column(name = "Msg", nullable = true)
+    private String commState;
+    //@Column(name = "Status", nullable = true)
+    private String modelName;
+    //@Column(name = "Mc_object", nullable = true)
+    private String location;
 
-		public String getId() {
-			return id;
-		}
+    private String hostName;
 
-		public void setId(String id) {
-			this.id = id;
-		}
+    private String name;
 
-		public String getDeviceType() {
-			return DeviceType;
-		}
+    private String ipAddress;
 
-		public void setDeviceType(String deviceType) {
-			DeviceType = deviceType;
-		}
+    private String parentID;
 
-		public String getSerialNumber() {
-			return serialNumber;
-		}
+    public void onDevice(String body) {
 
-		public void setSerialNumber(String serialNumber) {
-			this.serialNumber = serialNumber;
-		}
+    }
 
-		public String getCommState() {
-			return CommState;
-		}
+    @Override
+    public String toString() {
+        return "Device: " + this.getId() +
+                " ParentId: " + this.getParentID() +
+                " on host: " + this.getHostName() +
+                " name: " + this.getName() +
+                " serial number: " + this.getSerialNumber() +
+                " location: " + this.getLocation() +
+                " device state: " + this.getDeviceState() +
+                " comm state: " + this.getCommState();
+    }
 
-		public void setCommState(String commState) {
-			CommState = commState;
-		}
+    public String getId() {
+        return id;
+    }
 
-		public String getModelName() {
-			return modelName;
-		}
+    public void setId(String id) {
+        this.id = id;
+    }
 
-		public void setModelName(String modelName) {
-			this.modelName = modelName;
-		}
+    public String getDeviceType() {
+        return deviceType;
+    }
 
-		public String getLocation() {
-			return location;
-		}
+    public void setDeviceType(String deviceType) {
+        this.deviceType = deviceType;
+    }
 
-		public void setLocation(String location) {
-			this.location = location;
-		}
+    public String getSerialNumber() {
+        return serialNumber;
+    }
 
-		public String getHostName() {
-			return hostName;
-		}
+    public void setSerialNumber(String serialNumber) {
+        this.serialNumber = serialNumber;
+    }
 
-		public void setHostName(String hostName) {
-			this.hostName = hostName;
-		}
+    public String getCommState() {
+        return commState;
+    }
 
-		public String getIpAddress() {
-			return ipAddress;
-		}
+    public void setCommState(String commState) {
+        this.commState = commState;
+    }
 
-		public void setIpAddress(String ipAddress) {
-			this.ipAddress = ipAddress;
-		}
+    public String getModelName() {
+        return modelName;
+    }
 
-		public String getDeviceState() {
-			return DeviceState;
-		}
+    public void setModelName(String modelName) {
+        this.modelName = modelName;
+    }
 
-		public void setDeviceState(String deviceState) {
-			DeviceState = deviceState;
-		}
+    public String getLocation() {
+        return location;
+    }
 
-		public String getName() {
-			return name;
-		}
+    public void setLocation(String location) {
+        this.location = location;
+    }
 
-		public void setName(String name) {
-			this.name = name;
-		}
+    public String getHostName() {
+        return hostName;
+    }
 
-		public String getParentID() {
-			return parentID;
-		}
+    public void setHostName(String hostName) {
+        this.hostName = hostName;
+    }
 
-		public void setParentID(String parentID) {
-			this.parentID = parentID;
-		}
+    public String getIpAddress() {
+        return ipAddress;
+    }
 
-		public String getSource() {
-			return Source;
-		}
+    public void setIpAddress(String ipAddress) {
+        this.ipAddress = ipAddress;
+    }
 
-		public void setSource(String source) {
-			Source = source;
-		}
+    public String getDeviceState() {
+        return deviceState;
+    }
 
-		public String getService() {
-			return Service;
-		}
+    public void setDeviceState(String deviceState) {
+        this.deviceState = deviceState;
+    }
 
-		public void setService(String service) {
-			Service = service;
-		}
+    public String getName() {
+        return name;
+    }
 
-	     
-     
+    public void setName(String name) {
+        this.name = name;
+    }
 
-	       
-	       
-	  
+    public String getParentID() {
+        return parentID;
+    }
 
+    public void setParentID(String parentID) {
+        this.parentID = parentID;
+    }
 
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public String getService() {
+        return service;
+    }
+
+    public void setService(String service) {
+        this.service = service;
+    }
+
+    public String getModelNumber() {
+        return modelNumber;
+    }
+
+    public void setModelNumber(String modelNumber) {
+        this.modelNumber = modelNumber;
+    }
 }

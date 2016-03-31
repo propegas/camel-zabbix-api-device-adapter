@@ -1,152 +1,154 @@
 package ru.atc.camel.zabbix.devices;
 
 //import org.apache.camel.spi.UriParam;
+
 import org.apache.camel.spi.UriParams;
 
 @UriParams
 public class ZabbixAPIConfiguration {
 
-	private String zabbixip;
+    private static final int DEFAULT_DELAY = 720;
 
-	private String username;
+    private String zabbixip;
 
-	private String adaptername;
+    private String username;
 
-	private String password;
+    private String adaptername;
 
-	private String source;
+    private String password;
 
-	private String zabbixapiurl;
+    private String source;
 
-	private String groupCiPattern;
+    private String zabbixapiurl;
 
-	private String groupSearchPattern;
+    private String groupCiPattern;
 
-	private String itemCiPattern;
+    private String groupSearchPattern;
 
-	private String itemCiSearchPattern;
+    private String itemCiPattern;
 
-	private String itemCiParentPattern;
+    private String itemCiSearchPattern;
 
-	private String itemCiTypePattern;
+    private String itemCiParentPattern;
+
+    private String itemCiTypePattern;
 
     private String zabbixDevicesVMwareTemplatePattern;
 
+    private int lastid;
 
-	private int lastid = 0;
+    private int delay = DEFAULT_DELAY;
 
-	private int delay = 720;
+    public int getDelay() {
+        return delay;
+    }
 
-	public int getDelay() {
-		return delay;
-	}
+    public void setDelay(int delay) {
+        this.delay = delay;
+    }
 
-	public void setDelay(int delay) {
-		this.delay = delay;
-	}
+    public int getLastid() {
+        return lastid;
+    }
 
-	public int getLastid() {
-		return lastid;
-	}
+    public void setLastid(int lastid) {
+        this.lastid = lastid;
+    }
 
-	public void setLastid(int lastid) {
-		this.lastid = lastid;
-	}
+    public String getZabbixip() {
+        return zabbixip;
+    }
 
-	public String getZabbixip() {
-		return zabbixip;
-	}
+    public void setZabbixip(String zabbixip) {
+        this.zabbixip = zabbixip;
+    }
 
-	public void setZabbixip(String zabbixip) {
-		this.zabbixip = zabbixip;
-	}
+    public String getUsername() {
+        return username;
+    }
 
-	public String getUsername() {
-		return username;
-	}
+    public void setUsername(String username) {
+        this.username = username;
+    }
 
-	public void setUsername(String username) {
-		this.username = username;
-	}
+    public String getAdaptername() {
+        return adaptername;
+    }
 
-	public String getAdaptername() {
-		return adaptername;
-	}
+    public void setAdaptername(String adaptername) {
+        this.adaptername = adaptername;
+    }
 
-	public void setAdaptername(String adaptername) {
-		this.adaptername = adaptername;
-	}
+    public String getPassword() {
+        return password;
+    }
 
-	public String getPassword() {
-		return password;
-	}
+    public void setPassword(String password) {
+        this.password = password;
+    }
 
-	public void setPassword(String password) {
-		this.password = password;
-	}
+    public String getSource() {
+        return source;
+    }
 
-	public String getSource() {
-		return source;
-	}
+    public void setSource(String source) {
+        this.source = source;
+    }
 
-	public void setSource(String source) {
-		this.source = source;
-	}
+    public String getZabbixapiurl() {
+        return zabbixapiurl;
+    }
 
-	public String getZabbixapiurl() {
-		return zabbixapiurl;
-	}
+    public void setZabbixapiurl(String zabbixapiurl) {
+        this.zabbixapiurl = zabbixapiurl;
+    }
 
-	public void setZabbixapiurl(String zabbixapiurl) {
-		this.zabbixapiurl = zabbixapiurl;
-	}
+    public String getGroupCiPattern() {
+        return groupCiPattern;
+    }
 
-	public String getGroupCiPattern() {
-		return groupCiPattern;
-	}
+    public void setGroupCiPattern(String groupCiPattern) {
+        this.groupCiPattern = groupCiPattern;
+    }
 
-	public void setGroupCiPattern(String groupCiPattern) {
-		this.groupCiPattern = groupCiPattern;
-	}
+    public String getGroupSearchPattern() {
+        return groupSearchPattern;
+    }
 
-	public String getGroupSearchPattern() {
-		return groupSearchPattern;
-	}
+    public void setGroupSearchPattern(String groupSearchPattern) {
+        this.groupSearchPattern = groupSearchPattern;
+    }
 
-	public void setGroupSearchPattern(String groupSearchPattern) {
-		this.groupSearchPattern = groupSearchPattern;
-	}
+    public String getItemCiPattern() {
+        return itemCiPattern;
+    }
 
-	public String getItemCiPattern() {
-		return itemCiPattern;
-	}
+    public void setItemCiPattern(String itemCiPattern) {
+        this.itemCiPattern = itemCiPattern;
+    }
 
-	public void setItemCiPattern(String itemCiPattern) {
-		this.itemCiPattern = itemCiPattern;
-	}
+    public String getItemCiSearchPattern() {
+        return itemCiSearchPattern;
+    }
 
-	public String getItemCiSearchPattern() {
-		return itemCiSearchPattern;
-	}
+    public void setItemCiSearchPattern(String itemCiSearchPattern) {
+        this.itemCiSearchPattern = itemCiSearchPattern;
+    }
 
-	public void setItemCiSearchPattern(String itemCiSearchPattern) {
-		this.itemCiSearchPattern = itemCiSearchPattern;
-	}
+    public String getItemCiParentPattern() {
+        return itemCiParentPattern;
+    }
 
-	public String getItemCiParentPattern() {
-		return itemCiParentPattern;
-	}
+    public void setItemCiParentPattern(String itemCiParentPattern) {
+        this.itemCiParentPattern = itemCiParentPattern;
+    }
 
-	public void setItemCiParentPattern(String itemCiParentPattern) {
-		this.itemCiParentPattern = itemCiParentPattern;
-	}
+    public String getItemCiTypePattern() {
+        return itemCiTypePattern;
+    }
 
-	public String getItemCiTypePattern() {
-		return itemCiTypePattern;
-	}
-
-	public void setItemCiTypePattern(String itemCiTypePattern) {
-		this.itemCiTypePattern = itemCiTypePattern;
+    public void setItemCiTypePattern(String itemCiTypePattern) {
+        this.itemCiTypePattern = itemCiTypePattern;
     }
 
     public String getZabbixDevicesVMwareTemplatePattern() {

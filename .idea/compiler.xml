@@ -30,8 +30,16 @@
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
       </profile>
+      <profile default="false" name="Annotation profile for api" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="true" />
+        <module name="api" />
+      </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="api" target="1.7" />
       <module name="camel-zabbix-api-device-adapter" target="1.7" />
       <module name="zabbix-general-ciitem-library" target="1.7" />
     </bytecodeTargetLevel>
