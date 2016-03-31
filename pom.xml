@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>ru.atc.monitoring</groupId>
 	<artifactId>camel-zabbix-api-devices-adapter</artifactId>
-	<version>0.6.2-SNAPSHOT</version>
+    <version>0.6.3-SNAPSHOT</version>
 
 	<properties>
 		<camel-version>2.15.3</camel-version>
@@ -176,6 +176,10 @@
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>2.6</version>
 				<configuration>
+                    <excludes>
+                        <exclude>*.properties</exclude>
+                        <exclude>*.xml</exclude>
+                    </excludes>
 					<archive>
 						<manifest>
 							<addClasspath>true</addClasspath>
