@@ -15,7 +15,11 @@ import org.slf4j.LoggerFactory;
 import ru.at_consulting.itsm.device.Device;
 
 import javax.jms.ConnectionFactory;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.Objects;
+import java.util.Properties;
 
 //import org.apache.camel.processor.idempotent.FileIdempotentRepository;
 //import ru.at_consulting.itsm.event.Event;
@@ -25,6 +29,7 @@ public final class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static String activemq_port;
     private static String activemq_ip;
+    private static String source;
 
     private Main() {
 
@@ -47,6 +52,30 @@ public final class Main {
 
         logger.info("activemq_ip: " + activemq_ip);
         logger.info("activemq_port: " + activemq_port);
+
+        // get Properties from file
+        Properties prop = new Properties();
+        InputStream input = null;
+
+        try {
+
+            input = new FileInputStream("zabbixapi.properties");
+
+            // load a properties file
+            prop.load(input);
+
+            source = prop.getProperty("source");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
 
         org.apache.camel.main.Main main = new org.apache.camel.main.Main();
         main.enableHangupSupport();
@@ -74,7 +103,7 @@ public final class Main {
                 from("timer://foo?period={{heartbeatsdelay}}")
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
-                                ZabbixAPIConsumer.genHeartbeatMessage(exchange, "1");
+                                ZabbixAPIConsumer.genHeartbeatMessage(exchange, source);
                             }
                         })
                         .marshal(myJson)

@@ -28,8 +28,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static ru.atc.zabbix.general.CiItems.*;
-
+import static ru.atc.zabbix.general.CiItems.checkHostAliases;
+import static ru.atc.zabbix.general.CiItems.checkHostPattern;
+import static ru.atc.zabbix.general.CiItems.checkItemForCi;
+import static ru.atc.zabbix.general.CiItems.getTransformedItemName;
 //import io.github.hengyunabc.zabbix.RequestBuilder;
 //import io.github.hengyunabc.zabbix.api.DefaultZabbixApi;
 
@@ -409,6 +411,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             }
 
             String hostid = host.getJSONObject(0).getString("hostid");
+            String visibleName = host.getJSONObject(0).getString("name");
             String name = item.get("name").toString();
             String key = item.get("key_").toString();
 
@@ -440,7 +443,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                     // create link of CiGroup to host or item as a parent
                     String pseudoCiId = String.format("%s.%s", hostid, deviceType);
 
-                    String[] deviceArray = new String[]{ciHostAliasName, pseudoCiId, "CiGroup", deviceType, hostid};
+                    String[] deviceArray = new String[]{ciHostAliasName, pseudoCiId, "CiGroup", deviceType, hostid, hostName};
                     logger.debug(String.format("*** Add Zabbix Pseudo CI (CiGroup) to HASH : %s %s",
                             deviceArray[0], pseudoCiId));
                     finalDevicesHashMap.put(pseudoCiId, deviceArray);
@@ -453,7 +456,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                 // add device as an array to hash-map to exclude duplicates of ci-items
                 // using ciid as a key
                 // String hostname, String Id, String deviceType, String newhostname, String parentID
-                String[] deviceArray = new String[]{ciHostAliasName, ciid, deviceType, newCiName, hostid};
+                String[] deviceArray = new String[]{ciHostAliasName, ciid, deviceType, newCiName, hostid, hostName};
                 logger.debug(String.format("*** Add Zabbix CI Item to HASH : %s %s",
                         deviceArray[0], ciid));
                 finalDevicesHashMap.put(ciid, deviceArray);
@@ -472,7 +475,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
             // generate Device json message
             Device generatedDevice;
-            generatedDevice = genHostObj(deviceArray[0], deviceArray[1], deviceArray[2], deviceArray[3], deviceArray[4]);
+            generatedDevice = genHostObj(deviceArray[0], deviceArray[1], deviceArray[2],
+                    deviceArray[3], deviceArray[4], "", deviceArray[5]);
             logger.debug("*** NEW DEVICE: ", generatedDevice.toString());
             deviceList.add(generatedDevice);
         }
@@ -626,6 +630,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         for (int i = 0; i < hosts.size(); i++) {
             //deviceType = "host";
             parentID = "";
+            String service = "";
 
             // logger.debug(f.toString());
             // ZabbixAPIHost host = new ZabbixAPIHost();
@@ -655,7 +660,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             // Example:
 
             // zabbix_group_ci_pattern=\\((.*)\\)(.*)
-            String groupCiSearchPattern = endpoint.getConfiguration().getGroupCiPattern();
+            String groupCiPattern = endpoint.getConfiguration().getGroupCiPattern();
 
             if ("".equals(parentID)) {
                 hostgroupsloop:
@@ -663,12 +668,19 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                     // logger.debug(f.toString());
                     // ZabbixAPIHost host = new ZabbixAPIHost();
                     JSONObject hostgroup = hostgroups.getJSONObject(j);
-                    String name = hostgroup.getString("name");
-                    //if (name.startsWith("[")) {
-                    if (name.matches(groupCiSearchPattern)) {
-                        logger.debug("************* Found ParentGroup hostgroup: " + name);
+                    String hostegroupName = hostgroup.getString("name");
+
+                    // Example group :
+                    // (Невский.СЭ)ТЭЦ-1
+                    Pattern p = Pattern.compile(groupCiPattern);
+                    Matcher matcher = p.matcher(hostegroupName);
+
+                    // if Group has Service CI pattern
+                    if (matcher.matches()) {
+                        service = matcher.group(1);
+                        logger.debug(String.format("************* Found ParentGroup hostgroup: %s and Service:", hostegroupName, service));
                         parentID = hostgroup.getString("groupid");
-                        logger.debug("************* Found ParentGroup hostgroup value: " + parentID);
+                        logger.debug(String.format("************* Found ParentGroup hostgroup ID: %s", parentID));
                         break hostgroupsloop;
                     }
                     // JSONArray hostgroups = host.getJSONArray("groups");
@@ -703,7 +715,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
             Device gendevice;
             String hostnameorig = host.getString("host");
-            gendevice = genHostObj(hostnameorig, hostid, deviceType, newhostname, parentID);
+            gendevice = genHostObj(hostnameorig, hostid, deviceType,
+                    newhostname, parentID, service, hostName);
             deviceList.add(gendevice);
 
         }
@@ -825,7 +838,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
     }
 
-    private Device genHostObj(String hostname, String ciId, String deviceType, String ciName, String parentID) {
+    private Device genHostObj(String hostname, String ciId, String deviceType,
+                              String ciName, String parentID, String service, String hostVisibleName) {
         Device genDevice;
         genDevice = new Device();
 
@@ -844,7 +858,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         genDevice.setId(String.format("%s:%s", endpoint.getConfiguration().getSource(), ciId));
         genDevice.setDeviceType(deviceType);
         genDevice.setHostName(hostname);
+        genDevice.setVisibleName(hostVisibleName);
         genDevice.setParentID(parentid);
+
+        if (!"".equals(service))
+            genDevice.setService(service);
 
         // gendevice.setDeviceState(host.getStatus());
         // gendevice.setDeviceState(host.getOperationalStatus());
@@ -867,20 +885,20 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         String hostgroupName = hostgroup.getString("name");
 
         // zabbix_group_ci_pattern=\\((.*)\\)(.*)
-        String pattern = endpoint.getConfiguration().getGroupCiPattern();
-        logger.debug("*** Zabbix Group Pattern: " + pattern);
+        String groupCiPattern = endpoint.getConfiguration().getGroupCiPattern();
+        logger.debug("*** Zabbix Group Pattern: " + groupCiPattern);
 
         String newHostgroupName;
         String service = "";
 
         // Example group :
         // (Невский.СЭ)ТЭЦ-1
-        Pattern p = Pattern.compile(pattern);
+        Pattern p = Pattern.compile(groupCiPattern);
         Matcher matcher = p.matcher(hostgroupName);
 
-        // if Item has CI pattern
+        // if Group has Service CI pattern
         if (matcher.matches()) {
-            logger.debug("*** Finded Zabbix Group with Pattern: " + hostgroupName);
+            logger.debug("*** Finded Zabbix Group with Service Pattern: " + hostgroupName);
 
             newHostgroupName = matcher.group(2);
             service = matcher.group(1);

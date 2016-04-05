@@ -49,9 +49,7 @@ public class Device implements Serializable {
 
     private String parentID;
 
-    public void onDevice(String body) {
-
-    }
+    private String visibleName;
 
     @Override
     public String toString() {
@@ -175,5 +173,13 @@ public class Device implements Serializable {
 
     public void setModelNumber(String modelNumber) {
         this.modelNumber = modelNumber;
+    }
+
+    public String getVisibleName() {
+        return visibleName;
+    }
+
+    public void setVisibleName(String visibleName) {
+        this.visibleName = visibleName;
     }
 }
