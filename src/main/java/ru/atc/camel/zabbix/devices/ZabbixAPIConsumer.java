@@ -377,6 +377,11 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             e.printStackTrace();
             throw new RuntimeException("Failed get JSON response result for all CI Items.");
         }
+        return getDevicesFromZabbixItems(hostitems);
+
+    }
+
+    List<Device> getDevicesFromZabbixItems(JSONArray hostitems) {
         List<Device> deviceList = new ArrayList<>();
 
         List<Device> generatedDevicesList = new ArrayList<>();
@@ -421,7 +426,6 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             }
 
             // get hash (ciid) and parsed name for CI item
-
             String[] returnCiArray = checkItemForCi(name, hostid, ciHostAliasName,
                     this.endpoint.getConfiguration().getItemCiPattern(),
                     this.endpoint.getConfiguration().getItemCiParentPattern(),
@@ -443,7 +447,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                     // create link of CiGroup to host or item as a parent
                     String pseudoCiId = String.format("%s.%s", hostid, deviceType);
 
-                    String[] deviceArray = new String[]{ciHostAliasName, pseudoCiId, "CiGroup", deviceType, hostid, hostName};
+                    String[] deviceArray = new String[]{ciHostAliasName, pseudoCiId, "CiGroup", deviceType, hostid,
+                            String.format("%s:%s", hostName, deviceType)};
                     logger.debug(String.format("*** Add Zabbix Pseudo CI (CiGroup) to HASH : %s %s",
                             deviceArray[0], pseudoCiId));
                     finalDevicesHashMap.put(pseudoCiId, deviceArray);
@@ -456,7 +461,8 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                 // add device as an array to hash-map to exclude duplicates of ci-items
                 // using ciid as a key
                 // String hostname, String Id, String deviceType, String newhostname, String parentID
-                String[] deviceArray = new String[]{ciHostAliasName, ciid, deviceType, newCiName, hostid, hostName};
+                String[] deviceArray = new String[]{ciHostAliasName, ciid, deviceType, newCiName, hostid,
+                        String.format("%s:%s", hostName, newCiName)};
                 logger.debug(String.format("*** Add Zabbix CI Item to HASH : %s %s",
                         deviceArray[0], ciid));
                 finalDevicesHashMap.put(ciid, deviceArray);
@@ -484,7 +490,6 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         generatedDevicesList.addAll(deviceList);
 
         return generatedDevicesList;
-
     }
 
     private List<Device> getAllHostGroups(DefaultZabbixApi zabbixApi) {
@@ -646,7 +651,9 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                 logger.debug(String.format("Finded Zabbix Host with Aliases: %s (%s)", hostHost, hostName));
                 String[] checkreturn = checkHostAliases(hosts, hostHost, hostName);
                 parentID = checkreturn[0];
-                newhostname = checkreturn[1];
+
+                // add first part of host to name of CI
+                newhostname = String.format("%s:%s", checkreturn[2], checkreturn[1]);
             }
 
             JSONArray hostgroups = host.getJSONArray("groups");
@@ -654,7 +661,12 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             //JSONArray hostitems = host.getJSONArray("items");
             JSONArray hostmacros = host.getJSONArray("macros");
 
-            logger.debug("*** Received JSON Host: " + host.toString());
+            try {
+                logger.debug("*** Received JSON Host: " + host.toString());
+            } catch (Exception e) {
+                e.printStackTrace();
+                logger.error("Error while print JSON host.");
+            }
 
             // if parentID is not set in host name
             // Example:
