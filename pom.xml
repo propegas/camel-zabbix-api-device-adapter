@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>ru.atc.monitoring</groupId>
     <artifactId>camel-zabbix-api-devices-adapter</artifactId>
-    <version>0.7.3-SNAPSHOT</version>
+    <version>0.7.4-SNAPSHOT</version>
 
     <properties>
         <camel-version>2.15.3</camel-version>
@@ -104,7 +104,7 @@
         <dependency>
             <groupId>ru.atc.zabbix.general</groupId>
             <artifactId>ciitem-api</artifactId>
-            <version>1.1.1</version>
+            <version>1.1.4</version>
         </dependency>
         <dependency>
             <groupId>ru.atc.monitoring</groupId>

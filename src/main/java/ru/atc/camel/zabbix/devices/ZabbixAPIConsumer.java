@@ -622,13 +622,17 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             e.printStackTrace();
             throw new RuntimeException("Failed get JSON response result for all Hosts.");
         }
+        return getDevicesFromZabbixHosts(zabbixApi, hosts);
+    }
+
+    protected List<Device> getDevicesFromZabbixHosts(DefaultZabbixApi zabbixApi, JSONArray hosts) {
         List<Device> deviceList = new ArrayList<>();
 
         List<Device> listFinal = new ArrayList<>();
         //List<Device> listFinal = new ArrayList<Device>();
         String deviceType;
         String parentID;
-        String newhostname;
+        String hostNameFull;
 
         logger.info("Finded Zabbix Hosts: " + hosts.size());
         logger.info("*** Generating Devices... ");
@@ -640,20 +644,24 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             // logger.debug(f.toString());
             // ZabbixAPIHost host = new ZabbixAPIHost();
             JSONObject host = hosts.getJSONObject(i);
-            String hostHost = host.getString("host");
-            String hostName = host.getString("name");
-            newhostname = hostName;
+            String hostOriginHost = host.getString("host");
+            String hostNameVisible = host.getString("name");
+            hostNameFull = hostNameVisible;
 
             String hostid = host.getString("hostid");
+            String hostNameBeginPart = "";
+            String hostNameEndPart = "";
             // Example: KRL-PHOBOSAU--MSSQL
-            if (hostHost.matches("(.*)--(.*)") || hostName.matches("(.*)--(.*)")) {
+            if (hostOriginHost.matches("(.*)--(.*)") || hostNameVisible.matches("(.*)--(.*)")) {
 
-                logger.debug(String.format("Finded Zabbix Host with Aliases: %s (%s)", hostHost, hostName));
-                String[] checkreturn = checkHostAliases(hosts, hostHost, hostName);
+                logger.debug(String.format("Finded Zabbix Host with Aliases: %s (%s)", hostOriginHost, hostNameVisible));
+                String[] checkreturn = checkHostAliases(hosts, hostOriginHost, hostNameVisible);
                 parentID = checkreturn[0];
 
                 // add first part of host to name of CI
-                newhostname = String.format("%s:%s", checkreturn[2], checkreturn[1]);
+                hostNameFull = String.format("%s:%s", checkreturn[2], checkreturn[1]);
+                hostNameBeginPart = checkreturn[2];
+                hostNameEndPart = checkreturn[1];
             }
 
             JSONArray hostgroups = host.getJSONArray("groups");
@@ -690,7 +698,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                     // if Group has Service CI pattern
                     if (matcher.matches()) {
                         service = matcher.group(1);
-                        logger.debug(String.format("************* Found ParentGroup hostgroup: %s and Service:", hostegroupName, service));
+                        logger.debug(String.format("************* Found ParentGroup hostgroup: %s and Service: %s", hostegroupName, service));
                         parentID = hostgroup.getString("groupid");
                         logger.debug(String.format("************* Found ParentGroup hostgroup ID: %s", parentID));
                         break hostgroupsloop;
@@ -701,35 +709,52 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
                 }
             }
 
+            boolean isVm = false;
             for (int x = 0; x < hosttemplates.size(); x++) {
                 // logger.debug(f.toString());
                 // ZabbixAPIHost host = new ZabbixAPIHost();
-                JSONObject hostgtemplate = hosttemplates.getJSONObject(x);
+                JSONObject hostTemplate = hosttemplates.getJSONObject(x);
                 // JSONArray hostgroups = host.getJSONArray("groups");
 
-                logger.debug("******** Received JSON Hosttemplate: " + hostgtemplate.toString());
+                logger.debug("******** Received JSON Hosttemplate: " + hostTemplate.toString());
+
+                if (hostTemplate.get("name").toString().contains("--VMware Guest--"))
+                    isVm = true;
             }
 
-            //hostmacrosloop:
+            // try to receive host type-macros
             logger.debug("******** Check Host's type-macros ");
             deviceType = findDeviceTypeFromMacros(hostmacros);
 
-            // try to receive templates type-macros
-            if ("".equals(deviceType)) {
+            logger.debug("******** 1 deviceType: " + deviceType);
+
+            // try to receive host's templates type-macros
+            if ("".equals(deviceType) && zabbixApi != null) {
                 logger.debug("******** Check Template's type-macros ");
                 deviceType = getMacrosFromTemplates(zabbixApi, hosttemplates);
             }
+
+            logger.debug("******** 2 deviceType: " + deviceType);
 
             // set default type
             if ("".equals(deviceType)) {
                 deviceType = "host";
             }
 
-            Device gendevice;
-            String hostnameorig = host.getString("host");
-            gendevice = genHostObj(hostnameorig, hostid, deviceType,
-                    newhostname, parentID, service, hostName);
-            deviceList.add(gendevice);
+            logger.debug("******** 3 deviceType: " + deviceType);
+
+            Device genDevice;
+            String newCiHostName = host.getString("host");
+            // set default type
+            // 172.20.22.115--Tgc1-proxy-mgr
+            if ("vm".equals(deviceType) || isVm) {
+                newCiHostName = hostNameEndPart;
+            } else {
+                newCiHostName = hostNameBeginPart;
+            }
+            genDevice = genHostObj(newCiHostName, hostid, deviceType,
+                    hostNameFull, parentID, service, hostNameVisible);
+            deviceList.add(genDevice);
 
         }
 
