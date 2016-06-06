@@ -4,6 +4,7 @@ package ru.atc.camel.zabbix.devices;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.camel.Exchange;
+import org.apache.camel.LoggingLevel;
 import org.apache.camel.Processor;
 import org.apache.camel.builder.RouteBuilder;
 import org.apache.camel.component.jms.JmsComponent;
@@ -26,10 +27,11 @@ import java.util.Properties;
 
 public final class Main {
 
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
+    private static final Logger logger = LoggerFactory.getLogger("mainLogger");
     private static String activemq_port;
     private static String activemq_ip;
     private static String source;
+    private static String adaptername;
 
     private Main() {
 
@@ -50,21 +52,19 @@ public final class Main {
         if (activemq_ip == null || Objects.equals(activemq_ip, ""))
             activemq_ip = "172.20.19.195";
 
-        logger.info("activemq_ip: " + activemq_ip);
-        logger.info("activemq_port: " + activemq_port);
-
         // get Properties from file
         Properties prop = new Properties();
         InputStream input = null;
 
         try {
-
             input = new FileInputStream("zabbixapi.properties");
 
             // load a properties file
             prop.load(input);
 
             source = prop.getProperty("source");
+            adaptername = prop.getProperty("adaptername");
+
         } catch (IOException ex) {
             ex.printStackTrace();
         } finally {
@@ -76,9 +76,11 @@ public final class Main {
                 }
             }
         }
-
+        logger.info("**** adaptername: " + adaptername);
+        logger.info("activemq_ip: " + activemq_ip);
+        logger.info("activemq_port: " + activemq_port);
         org.apache.camel.main.Main main = new org.apache.camel.main.Main();
-        main.enableHangupSupport();
+        //main.enableHangupSupport();
 
         //CHECKSTYLE:OFF: checkstyle:anoninnerlength
         main.addRouteBuilder(new RouteBuilder() {
@@ -103,12 +105,13 @@ public final class Main {
                 from("timer://foo?period={{heartbeatsdelay}}")
                         .process(new Processor() {
                             public void process(Exchange exchange) throws Exception {
-                                ZabbixAPIConsumer.genHeartbeatMessage(exchange, source);
+                                ZabbixAPIConsumer.genHeartbeatMessage(exchange, adaptername);
                             }
                         })
                         .marshal(myJson)
                         .to("activemq:{{heartbeatsqueue}}")
-                        .log("*** Heartbeat: ${id}");
+                        .log(LoggingLevel.DEBUG, logger, "*** Heartbeat: ${id}")
+                        .log(LoggingLevel.DEBUG, logger, "***HEARTBEAT BODY: ${in.body}");
 
                 from(new StringBuilder()
                         .append("zabbixapi://devices?")
@@ -132,11 +135,12 @@ public final class Main {
                         .choice()
                         .when(header("queueName").isEqualTo("Devices"))
                         .to("activemq:{{devicesqueue}}")
-                        .log("*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .log(LoggingLevel.DEBUG, logger, "*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .log(LoggingLevel.DEBUG, logger, "*** NEW DEVICE BODY: ${in.body}")
                         .endChoice()
                         .otherwise()
-                        .to("activemq:{{eventsqueue}}")
-                        .log("*** Error: ${id} ${header.DeviceId}")
+                        .to("activemq:{{errorsqueue}}")
+                        .log(LoggingLevel.DEBUG, logger, "*** Error: ${id} ${header.DeviceId}")
                         .end()
 
                         .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
@@ -164,14 +168,15 @@ public final class Main {
                         .choice()
                         .when(header("queueName").isEqualTo("Devices"))
                         .to("activemq:{{devicesqueue}}")
-                        .log("*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .log(LoggingLevel.DEBUG, logger, "*** Device: ${header.DeviceId} (${header.DeviceType}) ParentId: ${header.ParentId}")
+                        .log(LoggingLevel.DEBUG, logger, "*** NEW DEVICE BODY: ${in.body}")
                         .endChoice()
                         .otherwise()
-                        .to("activemq:{{eventsqueue}}")
-                        .log("*** Error: ${id} ${header.DeviceId}")
+                        .to("activemq:{{errorsqueue}}")
+                        .log(LoggingLevel.DEBUG, logger, "*** Error: ${id} ${header.DeviceId}")
                         .end()
 
-                        .log("${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
+                        .log(LoggingLevel.DEBUG, logger, "${id} ${header.DeviceId} ${header.DeviceType} ${header.ParentId} ");
             }
         });
 

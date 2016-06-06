@@ -108,7 +108,7 @@ public class ZabbixAPIConsumerTest {
 
         Assert.assertThat(deviceFromJson.getHostName(), CoreMatchers.is("TGC1-PROXY-MGR"));
         Assert.assertThat(deviceFromJson.getId(), CoreMatchers.is("Zabbix:11889"));
-        Assert.assertThat(deviceFromJson.getName(), CoreMatchers.is("172.20.22.115:Tgc1-proxy-mgr".toUpperCase()));
+        Assert.assertThat(deviceFromJson.getName(), CoreMatchers.is("Tgc1-proxy-mgr".toUpperCase()));
         Assert.assertThat(deviceFromJson.getParentID(), CoreMatchers.is("Zabbix:11331"));
         Assert.assertThat(deviceFromJson.getVisibleName(), CoreMatchers.is("172.20.22.115--Tgc1-proxy-mgr"));
         Assert.assertThat(deviceFromJson.getDeviceType(), CoreMatchers.is("host"));
