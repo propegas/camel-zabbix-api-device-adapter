@@ -7,7 +7,7 @@ import org.apache.camel.Processor;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Test;
-import ru.at_consulting.itsm.device.Device;
+import ru.atc.adapters.type.Device;
 
 import java.util.List;
 

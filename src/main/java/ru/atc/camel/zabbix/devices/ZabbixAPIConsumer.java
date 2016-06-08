@@ -13,8 +13,7 @@ import org.apache.http.impl.client.DefaultHttpRequestRetryHandler;
 import org.apache.http.impl.client.HttpClients;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.at_consulting.itsm.device.Device;
-import ru.at_consulting.itsm.event.Event;
+import ru.atc.adapters.type.Device;
 import ru.atc.monitoring.zabbix.api.DefaultZabbixApi;
 import ru.atc.monitoring.zabbix.api.Request;
 import ru.atc.monitoring.zabbix.api.RequestBuilder;
@@ -28,12 +27,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static ru.atc.adapters.message.CamelMessageManager.genAndSendErrorMessage;
+import static ru.atc.adapters.message.CamelMessageManager.genHeartbeatMessage;
 import static ru.atc.zabbix.general.CiItems.checkHostAliases;
 import static ru.atc.zabbix.general.CiItems.checkHostPattern;
 import static ru.atc.zabbix.general.CiItems.checkItemForCi;
 import static ru.atc.zabbix.general.CiItems.getTransformedItemName;
-//import io.github.hengyunabc.zabbix.RequestBuilder;
-//import io.github.hengyunabc.zabbix.api.DefaultZabbixApi;
 
 public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
@@ -59,6 +58,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         this.setDelay(endpoint.getConfiguration().getDelay());
     }
 
+    /*
     public static void genHeartbeatMessage(Exchange exchange, String source) {
 
         long timestamp = System.currentTimeMillis();
@@ -83,6 +83,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         exchange.getIn().setHeader("Source", source);
 
     }
+*/
 
     @Override
     protected int poll() throws Exception {
@@ -737,6 +738,17 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
     }
 
     private void genErrorMessage(String message) {
+        genAndSendErrorMessage(this, message, new RuntimeException("No additional exception's text."),
+                endpoint.getConfiguration().getAdaptername());
+    }
+
+    private void genErrorMessage(String message, Exception exception) {
+        genAndSendErrorMessage(this, message, exception,
+                endpoint.getConfiguration().getAdaptername());
+    }
+
+    /*
+    private static void genErrorMessage(String message) {
 
         long timestamp = System.currentTimeMillis();
         timestamp = timestamp / 1000;
@@ -746,12 +758,12 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         genevent.setEventCategory("ADAPTER");
         genevent.setSeverity(PersistentEventSeverity.CRITICAL.name());
         genevent.setTimestamp(timestamp);
-        genevent.setEventsource(String.format("%s", endpoint.getConfiguration().getSource()));
+        genevent.setEventsource(String.format("%s", endpoint.getConfiguration().getAdaptername()));
         genevent.setStatus("OPEN");
         genevent.setHost("adapter");
 
         logger.info(" **** Create Exchange for Error Message container");
-        Exchange exchange = getEndpoint().createExchange();
+        Exchange exchange = this.getEndpoint().createExchange();
         exchange.getIn().setBody(genevent, Device.class);
 
         exchange.getIn().setHeader("EventIdAndStatus", "Error_" + timestamp);
@@ -762,11 +774,13 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
         try {
             getProcessor().process(exchange);
         } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+            String messageText = "Ошибка при передачи сообщения в очередь";
+            loggerErrors.error(messageText, e);
+            logger.error(messageText, e);
         }
 
     }
+    */
 
     private Device genHostObj(String hostname, String ciId, String deviceType,
                               String ciName, String parentID, String service, String hostVisibleName) {
@@ -852,18 +866,6 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
         return gendevice;
 
-    }
-
-    public enum PersistentEventSeverity {
-        OK, INFO, WARNING, MINOR, MAJOR, CRITICAL;
-
-        public static PersistentEventSeverity fromValue(String v) {
-            return valueOf(v);
-        }
-
-        public String value() {
-            return name();
-        }
     }
 
     private final class HostsAndGroups {
