@@ -7,6 +7,8 @@ import org.apache.camel.Processor;
 import org.hamcrest.CoreMatchers;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ru.atc.adapters.type.Device;
 
 import java.util.List;
@@ -16,6 +18,8 @@ import java.util.List;
  * Package: ru.atc.camel.zabbix.devices.
  */
 public class ZabbixAPIConsumerTest {
+    private static final Logger logger = LoggerFactory.getLogger("mainLogger");
+    private static final Logger loggerErrors = LoggerFactory.getLogger("errorsLogger");
 
     //CHECKSTYLE:OFF
     @Test
@@ -37,6 +41,7 @@ public class ZabbixAPIConsumerTest {
         zabbixAPIConfiguration.setItemCiParentPattern("(.*)::(.*)");
         zabbixAPIConfiguration.setItemCiPattern("\\[(.*)\\](.*)");
         zabbixAPIConfiguration.setItemCiTypePattern("(.*)\\((.*)\\)");
+        zabbixAPIConfiguration.setHostAliasPattern("(.*)--(.*)");
         zabbixAPIConfiguration.setSource("Zabbix");
         zabbixAPIEndpoint.setConfiguration(zabbixAPIConfiguration);
         testCons = new ZabbixAPIConsumer(zabbixAPIEndpoint, processor);
@@ -88,10 +93,14 @@ public class ZabbixAPIConsumerTest {
         zabbixAPIConfiguration.setItemCiParentPattern("(.*)::(.*)");
         zabbixAPIConfiguration.setItemCiPattern("\\[(.*)\\](.*)");
         zabbixAPIConfiguration.setItemCiTypePattern("(.*)\\((.*)\\)");
+        zabbixAPIConfiguration.setHostAliasPattern("(.*)--(.*)");
         zabbixAPIConfiguration.setSource("Zabbix");
         zabbixAPIConfiguration.setGroupCiPattern("\\((.*)\\)(.*)");
         zabbixAPIEndpoint.setConfiguration(zabbixAPIConfiguration);
         testCons = new ZabbixAPIConsumer(zabbixAPIEndpoint, processor);
+
+        System.out.println("hostAliasPattern: " +
+                zabbixAPIConfiguration.getHostAliasPattern());
 
         String stringHostFromZabbix = "[{\"hostid\":\"11889\",\"name\":\"172.20.22.115--Tgc1-proxy-mgr\",\"host\":\"50198c58-249a-60a1-f520-475047fc0d77\",\"groups\":[{\"groupid\":\"6\",\"name\":\"Virtual machines\",\"internal\":\"0\",\"flags\":\"0\"}],\"parentTemplates\":[{\"templateid\":\"10089\",\"host\":\"Template Virt --VMware Guest--\",\"name\":\"Template Virt --VMware Guest--\"},{\"templateid\":\"11313\",\"host\":\"Template Virt --VMware Guest-- additional stats\",\"name\":\"Template Virt --VMware Guest-- additional stats\"},{\"templateid\":\"11311\",\"host\":\"Template Virt --VMware Guest-- additional config\",\"name\":\"Template Virt --VMware Guest-- additional config\"}],\"macros\":[{\"hostmacroid\":\"5133\",\"macro\":\"{$PASSWORD}\",\"value\":\"Mzoning2\"},{\"hostmacroid\":\"5134\",\"macro\":\"{$URL}\",\"value\":\"https:\\/\\/172.20.22.50\\/sdk\"},{\"hostmacroid\":\"5135\",\"macro\":\"{$USERNAME}\",\"value\":\"zsm\"},{\"hostmacroid\":\"5136\",\"macro\":\"{$VC.IP}\",\"value\":\"172.20.22.50\"}]}," +
                 "{\"groups\":[{\"flags\":\"0\",\"groupid\":\"7\",\"internal\":\"0\",\"name\":\"Hypervisors\"},{\"flags\":\"4\",\"groupid\":\"187\",\"internal\":\"0\",\"name\":\"C7000-1\"},{\"flags\":\"0\",\"groupid\":\"96\",\"internal\":\"0\",\"name\":\"(Невский.ВВС)Прочее\"}],\"host\":\"33373336-3239-5a43-3231-343630324a59\",\"hostid\":\"11331\",\"macros\":[{\"hostmacroid\":\"2919\",\"macro\":\"{$PASSWORD}\",\"value\":\"Mzoning2\"},{\"hostmacroid\":\"2920\",\"macro\":\"{$URL}\",\"value\":\"https://172.20.22.50/sdk\"},{\"hostmacroid\":\"2921\",\"macro\":\"{$USERNAME}\",\"value\":\"zsm\"},{\"hostmacroid\":\"2922\",\"macro\":\"{$VC.IP}\",\"value\":\"172.20.22.50\"}],\"name\":\"172.20.22.115\",\"parentTemplates\":[{\"host\":\"Template Virt --VMware Hypervisor--\",\"name\":\"Template Virt --VMware Hypervisor--\",\"templateid\":\"10091\"}]}" +
@@ -134,10 +143,15 @@ public class ZabbixAPIConsumerTest {
         zabbixAPIConfiguration.setItemCiParentPattern("(.*)::(.*)");
         zabbixAPIConfiguration.setItemCiPattern("\\[(.*)\\](.*)");
         zabbixAPIConfiguration.setItemCiTypePattern("(.*)\\((.*)\\)");
+        zabbixAPIConfiguration.setHostAliasPattern("(.*)--(.*)");
         zabbixAPIConfiguration.setSource("Zabbix");
         zabbixAPIConfiguration.setGroupCiPattern("\\((.*)\\)(.*)");
         zabbixAPIEndpoint.setConfiguration(zabbixAPIConfiguration);
         testCons = new ZabbixAPIConsumer(zabbixAPIEndpoint, processor);
+        //testCons.setEndpoint(zabbixAPIEndpoint);
+        //ZabbixAPIConsumer.end
+
+        //testCons.getEndpoint().getEndpointConfiguration().g
 
         String stringHostFromZabbix = "[{\"groups\":[{\"flags\":\"0\",\"groupid\":\"40\",\"internal\":\"0\",\"name\":\"(Невский.СТС)ТЭЦ-1\"},{\"flags\":\"0\",\"groupid\":\"8\",\"internal\":\"0\",\"name\":\"Невский Nortel\"}],\"host\":\"172.20.150.83--NORTEL\",\"hostid\":\"10161\",\"macros\":[{\"hostmacroid\":\"13\",\"macro\":\"{$SNMP_COMMUNITY}\",\"value\":\"otm123\"},{\"macro\":\"{$TYPE}\",\"value\":\"Nortel\"}],\"name\":\"Диспетчерская АТС ТЭЦ-1--NORTEL\",\"parentTemplates\":[{\"host\":\"Template --SNMP Traps Nortel--\",\"name\":\"Template --SNMP Traps Nortel--\",\"templateid\":\"10108\"}]}," +
                 "{\"groups\":[{\"flags\":\"0\",\"groupid\":\"40\",\"internal\":\"0\",\"name\":\"(Невский.СТС)ТЭЦ-1\"},{\"flags\":\"0\",\"groupid\":\"8\",\"internal\":\"0\",\"name\":\"Невский Nortel\"}],\"host\":\"172.20.150.83\",\"hostid\":\"10109\",\"macros\":[{\"hostmacroid\":\"130\",\"macro\":\"{$TYPE}\",\"value\":\"phone\"},{\"hostmacroid\":\"11\",\"macro\":\"{$SNMP_COMMUNITY}\",\"value\":\"otm123\"}],\"name\":\"Диспетчерская АТС ТЭЦ-1\",\"parentTemplates\":[{\"host\":\"Template --ICMP Ping--\",\"name\":\"Template --ICMP Ping--\",\"templateid\":\"10104\"}]}]";

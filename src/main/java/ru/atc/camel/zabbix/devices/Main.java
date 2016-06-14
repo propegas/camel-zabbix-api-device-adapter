@@ -1,7 +1,5 @@
 package ru.atc.camel.zabbix.devices;
 
-//import java.io.File;
-
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.camel.Exchange;
 import org.apache.camel.LoggingLevel;
@@ -13,26 +11,21 @@ import org.apache.camel.model.dataformat.JsonDataFormat;
 import org.apache.camel.model.dataformat.JsonLibrary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ru.at_consulting.itsm.device.Device;
+import ru.atc.adapters.type.Device;
 
 import javax.jms.ConnectionFactory;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Objects;
 import java.util.Properties;
 
 import static ru.atc.adapters.message.CamelMessageManager.genHeartbeatMessage;
 
-//import org.apache.camel.processor.idempotent.FileIdempotentRepository;
-//import ru.at_consulting.itsm.event.Event;
-
 public final class Main {
 
     private static final Logger logger = LoggerFactory.getLogger("mainLogger");
-    private static String activemq_port;
-    private static String activemq_ip;
-    private static String source;
+    private static String activemqPort;
+    private static String activemqIp;
     private static String adaptername;
 
     private Main() {
@@ -44,16 +37,6 @@ public final class Main {
         logger.info("Starting Custom Apache Camel component example");
         logger.info("Press CTRL+C to terminate the JVM");
 
-        if (args.length == 2) {
-            activemq_port = args[1];
-            activemq_ip = args[0];
-        }
-
-        if (activemq_port == null || "".equals(activemq_port))
-            activemq_port = "61616";
-        if (activemq_ip == null || Objects.equals(activemq_ip, ""))
-            activemq_ip = "172.20.19.195";
-
         try {
             // get Properties from file
             InputStream input = new FileInputStream("zabbixapi.properties");
@@ -62,15 +45,16 @@ public final class Main {
             // load a properties file
             prop.load(input);
 
-            source = prop.getProperty("source");
             adaptername = prop.getProperty("adaptername");
+            activemqIp = prop.getProperty("activemq.ip");
+            activemqPort = prop.getProperty("activemq.port");
         } catch (IOException ex) {
             logger.error("Error while open and parsing properties file", ex);
         }
 
         logger.info("**** adaptername: " + adaptername);
-        logger.info("activemq_ip: " + activemq_ip);
-        logger.info("activemq_port: " + activemq_port);
+        logger.info("activemqIp: " + activemqIp);
+        logger.info("activemqPort: " + activemqPort);
         org.apache.camel.main.Main main = new org.apache.camel.main.Main();
 
         //CHECKSTYLE:OFF: checkstyle:anoninnerlength
@@ -79,7 +63,7 @@ public final class Main {
         main.run();
     }
 
-    public static class IntegrationRoute extends RouteBuilder {
+    private static class IntegrationRoute extends RouteBuilder {
         @Override
         public void configure() throws Exception {
 
@@ -93,7 +77,7 @@ public final class Main {
             getContext().addComponent("properties", properties);
 
             ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(
-                    "tcp://" + activemq_ip + ":" + activemq_port);
+                    "tcp://" + activemqIp + ":" + activemqPort);
             getContext().addComponent("activemq", JmsComponent.jmsComponentAutoAcknowledge(connectionFactory));
 
             // Heartbeats
@@ -117,6 +101,7 @@ public final class Main {
                     .append("password={{password}}&")
                     .append("adaptername={{adaptername}}&")
                     .append("source={{source}}&")
+                    .append("hostAliasPattern={{hostAliasPattern}}&")
                     .append("groupCiPattern={{zabbix_group_ci_pattern}}&")
                     .append("groupSearchPattern={{zabbix_group_search_pattern}}&")
                     .append("itemCiPattern={{zabbix_item_ke_pattern}}&")
@@ -149,6 +134,7 @@ public final class Main {
                     .append("password={{password}}&")
                     .append("adaptername={{adaptername}}&")
                     .append("source={{source}}&")
+                    .append("hostAliasPattern={{hostAliasPattern}}&")
                     .append("groupCiPattern={{zabbix_group_ci_pattern}}&")
                     .append("groupSearchPattern={{zabbix_group_search_pattern}}&")
                     .append("itemCiPattern={{zabbix_item_ke_pattern}}&")

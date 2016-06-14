@@ -33,6 +33,8 @@ public class ZabbixAPIConfiguration {
 
     private String itemCiTypePattern;
 
+    private String hostAliasPattern;
+
     private String zabbixDevicesVMwareTemplatePattern;
 
     private int lastid;
@@ -157,5 +159,13 @@ public class ZabbixAPIConfiguration {
 
     public void setZabbixDevicesVMwareTemplatePattern(String zabbixDevicesVMwareTemplatePattern) {
         this.zabbixDevicesVMwareTemplatePattern = zabbixDevicesVMwareTemplatePattern;
+    }
+
+    public String getHostAliasPattern() {
+        return hostAliasPattern;
+    }
+
+    public void setHostAliasPattern(String hostAliasPattern) {
+        this.hostAliasPattern = hostAliasPattern;
     }
 }
