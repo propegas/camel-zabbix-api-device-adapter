@@ -107,8 +107,7 @@ public final class Main {
                     .append("itemCiPattern={{zabbix_item_ke_pattern}}&")
                     .append("itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&")
                     .append("itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&")
-                    .append("itemCiTypePattern={{zabbix_item_ci_type_pattern}}&")
-                    .append("zabbixip={{zabbixip}}")
+                    .append("itemCiTypePattern={{zabbix_item_ci_type_pattern}}")
                     .toString())
 
                     .marshal(myJson)
@@ -141,8 +140,7 @@ public final class Main {
                     .append("itemCiSearchPattern={{zabbix_item_ke_search_pattern}}&")
                     .append("itemCiParentPattern={{zabbix_item_ci_parent_pattern}}&")
                     .append("itemCiTypePattern={{zabbix_item_ci_type_pattern}}&")
-                    .append("zabbixDevicesVMwareTemplatePattern={{zabbixDevicesVMwareTemplatePattern}}&")
-                    .append("zabbixip={{zabbixip}}")
+                    .append("zabbixDevicesVMwareTemplatePattern={{zabbixDevicesVMwareTemplatePattern}}")
                     .toString())
 
                     .marshal(myJson)
