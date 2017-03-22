@@ -721,7 +721,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
     private Device genHostObj(String hostname, String ciId, String deviceType,
                               String ciName, String parentID, String service, String hostVisibleName) {
         Device genDevice;
-        genDevice = new Device();
+        genDevice = new Device(endpoint.getConfiguration().getAdaptername());
 
         if ("".equals(ciName)) {
             genDevice.setName(hostname);
@@ -757,7 +757,7 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
     private Device genHostgroupObj(JSONObject hostgroup, String deviceType) {
 
         Device gendevice;
-        gendevice = new Device();
+        gendevice = new Device(endpoint.getConfiguration().getAdaptername());
 
         String hostgroupName = hostgroup.getString("name");
 
