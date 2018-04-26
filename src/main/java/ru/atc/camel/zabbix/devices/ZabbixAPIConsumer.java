@@ -256,6 +256,13 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             // Get all Items marked as CI from Zabbix
             itemsList = getAllCiItems(zabbixApi);
 
+            // Get all WEB-tests marked as CI from Zabbix
+            List<Device> webItemsList;
+            webItemsList = getAllWebItems(zabbixApi);
+            //itemsList = null;
+            if (webItemsList != null)
+                listFinal.addAll(webItemsList);
+
             if (itemsList != null)
                 listFinal.addAll(itemsList);
 
@@ -313,11 +320,52 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
             genErrorMessage("Failed get JSON response result for all CI Items", e);
             throw new RuntimeException("Failed get JSON response result for all CI Items.");
         }
-        return getDevicesFromZabbixItems(hostitems);
+        return getDevicesFromZabbixItems(hostitems, true);
 
     }
 
-    List<Device> getDevicesFromZabbixItems(JSONArray hostitems) {
+    private List<Device> getAllWebItems(DefaultZabbixApi zabbixApi) {
+
+        // zabbix_item_ke_search_pattern=[*]*
+        String itemCiSearchPattern = endpoint.getConfiguration().getItemCiSearchPattern();
+
+        logger.debug("*** Try to get Web Item CI using Pattern: " + itemCiSearchPattern);
+
+        Request getRequest;
+        JSONObject getResponse;
+
+        try {
+            JSONObject search = new JSONObject();
+
+            search.put("name", new String[]{itemCiSearchPattern});
+
+            getRequest = RequestBuilder.newBuilder().method("httptest.get")
+                    .paramEntry("search", search)
+                    .paramEntry("output", new String[]{"httptestid", "name"})
+                    .paramEntry("monitored", true)
+                    .paramEntry("searchWildcardsEnabled", true)
+                    .paramEntry("selectHosts", new String[]{"name", "host", "hostid"})
+                    .build();
+
+        } catch (Exception ex) {
+            genErrorMessage("Failed create JSON request for get all WEB CI Items", ex);
+            throw new RuntimeException("Failed create JSON request for get all WEB CI Items.");
+        }
+
+        JSONArray hostitems;
+        try {
+            getResponse = zabbixApi.call(getRequest);
+            hostitems = getResponse.getJSONArray("result");
+
+        } catch (Exception e) {
+            genErrorMessage("Failed get JSON response result for all Web CI Items", e);
+            throw new RuntimeException("Failed get JSON response result for all Web CI Items.");
+        }
+        return getDevicesFromZabbixItems(hostitems, false);
+
+    }
+
+    List<Device> getDevicesFromZabbixItems(JSONArray hostitems, boolean checkKey) {
         List<Device> deviceList = new ArrayList<>();
 
         List<Device> generatedDevicesList = new ArrayList<>();
@@ -348,11 +396,14 @@ public class ZabbixAPIConsumer extends ScheduledPollConsumer {
 
             String hostid = host.getJSONObject(0).getString("hostid");
             String name = item.get("name").toString();
-            String key = item.get("key_").toString();
 
-            // parse $1, $2 etc params in item name from key_ params
-            if (name.matches(".*\\$\\d+.*")) {
-                name = getTransformedItemName(name, key);
+            if (checkKey) {
+                String key = item.get("key_").toString();
+
+                // parse $1, $2 etc params in item name from key_ params
+                if (name.matches(".*\\$\\d+.*")) {
+                    name = getTransformedItemName(name, key);
+                }
             }
 
             // get hash (ciid) and parsed name for CI item

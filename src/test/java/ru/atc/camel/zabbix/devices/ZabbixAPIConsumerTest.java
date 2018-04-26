@@ -53,7 +53,7 @@ public class ZabbixAPIConsumerTest {
         String stringHostFromZabbix = "[{\"itemid\":\"359327\",\"name\":\"[engine-2-1 (Шасси Vplex)::mgmt-module-a | /engines/engine-1-1/mgmt-modules/mgmt-module-a (Модули Vplex)] Operational Status\",\"key_\":\"vplex.stat.module.operational-status[/engines/engine-2-1/mgmt-modules/mgmt-module-a]\",\"description\":\"[FOR_INTEGRATION]\",\"hosts\":[{\"hostid\":\"12081\",\"name\":\"172.20.14.135\",\"host\":\"172.20.14.135\"}]}]";
         JSONArray jsonDeviceFromZabbix = (JSONArray) JSON.parse(stringHostFromZabbix);
 
-        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix);
+        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix, true);
 
         // main device from item
         Device deviceFromJson = devicesFromJson.get(0);
@@ -108,7 +108,7 @@ public class ZabbixAPIConsumerTest {
         String stringHostFromZabbix = "[{\"itemid\":\"267178\",\"name\":\"[engine-1-1 (Шасси Vplex)::mgmt-module-a (Модули Vplex)] Operational Status\",\"key_\":\"vplex.stat.module.operational-status[/engines/engine-1-1/mgmt-modules/mgmt-module-a]\",\"description\":\"[FOR_INTEGRATION]\",\"hosts\":[{\"hostid\":\"12081\",\"name\":\"172.20.14.135\",\"host\":\"172.20.14.135\"}]}]";
         JSONArray jsonDeviceFromZabbix = (JSONArray) JSON.parse(stringHostFromZabbix);
 
-        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix);
+        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix, true);
 
         // main device from item
         Device deviceFromJson = devicesFromJson.get(1);
@@ -164,7 +164,7 @@ public class ZabbixAPIConsumerTest {
         String stringHostFromZabbix = "[{\"itemid\":\"304117\",\"name\":\"[Контроллер A (Контроллеры)::Expander Port: Enclosure ID 1, Controller A, Phy 0, PHY index 24, Type SC-1 | enc.0.24.sc-1 (IO порты)] Element Status\",\"key_\":\"hp.p2000.stats[ioports,_1_b_0_sc-0,elem-status-numeric]\",\"description\":\"[FOR_INTEGRATION]\",\"hosts\":[{\"hostid\":\"10511\",\"name\":\"MSA2040-C2-2\",\"host\":\"MSA2040-C2-2\"}]}]";
         JSONArray jsonDeviceFromZabbix = (JSONArray) JSON.parse(stringHostFromZabbix);
 
-        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix);
+        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix, true);
 
         // main device from item
         Device deviceFromJson = devicesFromJson.get(1);
@@ -219,7 +219,7 @@ public class ZabbixAPIConsumerTest {
         String stringHostFromZabbix = "[{\"itemid\":\"335892\",\"name\":\"[Полка 1 (Полки)] Description\",\"key_\":\"hp.p2000.stats[enclosures,enclosure_1,description]\",\"description\":\"[FOR_INTEGRATION]\",\"hosts\":[{\"hostid\":\"10511\",\"name\":\"MSA2040-C2-2\",\"host\":\"MSA2040-C2-2\"}]}]";
         JSONArray jsonDeviceFromZabbix = (JSONArray) JSON.parse(stringHostFromZabbix);
 
-        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix);
+        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix, true);
 
         // main device from item
         Device deviceFromJson = devicesFromJson.get(1);
@@ -274,7 +274,7 @@ public class ZabbixAPIConsumerTest {
         String stringHostFromZabbix = "[{\"itemid\":\"240720\",\"name\":\"[Полка 1 (Полки)::Контроллер A (Контроллеры)] CPU load\",\"key_\":\"hp.p2000.stats[controllers,controller_a,cpu-load]\",\"description\":\"[FOR_INTEGRATION]\",\"hosts\":[{\"hostid\":\"10511\",\"name\":\"MSA2040-C2-2\",\"host\":\"MSA2040-C2-2\"}]}]";
         JSONArray jsonDeviceFromZabbix = (JSONArray) JSON.parse(stringHostFromZabbix);
 
-        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix);
+        List<Device> devicesFromJson = testCons.getDevicesFromZabbixItems(jsonDeviceFromZabbix, true);
 
         // main device from item
         Device deviceFromJson = devicesFromJson.get(1);
